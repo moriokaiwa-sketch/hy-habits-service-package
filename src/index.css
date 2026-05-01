@@ -9,6 +9,7 @@
   --row-bg: #ffffff;
   --row-alt-bg: #fdfdfd;
   --highlight-color: #ffeb3b; /* Yellow warning/highlight */
+  --task-bg: #fffde7; /* Light yellow for task cells */
   --stamp-color: #d32f2f; /* Red stamp */
   --font-mono: 'Space Mono', 'Courier New', Courier, monospace;
 }
