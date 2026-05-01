@@ -123,7 +123,7 @@ function App() {
 
   const addHabit = () => {
     const newId = `task-${Date.now()}`;
-    setHabits([...habits, { id: newId, task: "New Task", isDone: false }]);
+    setHabits([...habits, { id: newId, task: "", isDone: false }]);
   };
 
   const getTodayDate = () => {
@@ -212,6 +212,7 @@ function App() {
                               className="task-input"
                               value={habit.task}
                               onChange={(e) => handleTaskChange(habit.id, e.target.value)}
+                              placeholder="New Task"
                             />
                           ) : (
                             <span>{habit.task}</span>
