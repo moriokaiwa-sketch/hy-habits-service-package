@@ -1,0 +1,293 @@
+.app-container {
+  width: 100%;
+  max-width: 800px;
+  margin-top: 2rem;
+  padding: 0 1rem;
+}
+
+/* Header & Toggle */
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 0.5rem;
+}
+
+.document-title {
+  display: flex;
+  flex-direction: column;
+}
+
+.card-title {
+  background-color: var(--header-bg);
+  color: var(--header-text);
+  padding: 0.5rem 1rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  border: 2px solid var(--text-color);
+  display: inline-block;
+  text-transform: uppercase;
+}
+
+.mode-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: bold;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 24px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+  border-radius: 24px;
+  border: 2px solid var(--text-color);
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+  border: 2px solid var(--text-color);
+}
+
+input:checked + .slider {
+  background-color: var(--highlight-color);
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px var(--highlight-color);
+}
+
+input:checked + .slider:before {
+  transform: translateX(26px);
+}
+
+/* Table Container */
+.table-container {
+  border: 2px solid var(--text-color);
+  background-color: var(--row-bg);
+  box-shadow: 4px 4px 0px rgba(0,0,0,0.1);
+}
+
+/* Table Header */
+.table-header {
+  display: flex;
+  background-color: #e0e6ed;
+  border-bottom: 2px solid var(--text-color);
+  font-weight: bold;
+}
+
+.col-task {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border-right: 2px solid var(--text-color);
+}
+
+.col-done {
+  width: 100px;
+  padding: 0.75rem 0;
+  text-align: center;
+}
+
+.col-action {
+  width: 80px;
+  padding: 0.75rem 0;
+  text-align: center;
+}
+
+/* Habit Row */
+.habit-row {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--row-bg);
+  transition: background-color 0.2s;
+}
+
+.habit-row:last-child {
+  border-bottom: none;
+}
+
+.habit-row:hover {
+  background-color: var(--row-alt-bg);
+}
+
+.habit-row.is-dragging {
+  background-color: var(--highlight-color);
+  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+  border: 2px solid var(--text-color);
+}
+
+/* Task cell */
+.task-cell {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border-right: 2px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.drag-handle {
+  cursor: grab;
+  color: #888;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.5rem;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.task-input {
+  flex: 1;
+  border: 1px dashed var(--border-color);
+  background: transparent;
+  padding: 0.25rem 0.5rem;
+  font-size: 1rem;
+  outline: none;
+}
+
+.task-input:focus {
+  border-style: solid;
+  border-color: var(--text-color);
+  background-color: var(--highlight-color);
+}
+
+/* Done cell */
+.done-cell {
+  width: 100px;
+  position: relative;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.done-cell:hover {
+  background-color: rgba(0,0,0,0.03);
+}
+
+.action-cell {
+  width: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Red Stamp Effect */
+.stamp {
+  color: var(--stamp-color);
+  font-size: 2rem;
+  font-weight: bold;
+  border: 3px solid var(--stamp-color);
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: rotate(-15deg);
+  opacity: 0.8;
+  position: absolute;
+  pointer-events: none;
+  animation: stampAnimation 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  /* slight blur to mimic ink bleed */
+  text-shadow: 0px 0px 1px rgba(211, 47, 47, 0.5);
+  box-shadow: inset 0px 0px 2px rgba(211, 47, 47, 0.5), 0px 0px 2px rgba(211, 47, 47, 0.5);
+}
+
+@keyframes stampAnimation {
+  0% {
+    opacity: 0;
+    transform: scale(2) rotate(0deg);
+  }
+  100% {
+    opacity: 0.8;
+    transform: scale(1) rotate(-15deg);
+  }
+}
+
+/* Buttons */
+.delete-btn {
+  color: var(--stamp-color);
+  font-size: 1.2rem;
+  padding: 0.5rem;
+  opacity: 0.6;
+}
+
+.delete-btn:hover {
+  opacity: 1;
+}
+
+.add-row {
+  display: flex;
+  padding: 1rem;
+  justify-content: center;
+  background-color: #eef2f5;
+  border-top: 2px solid var(--text-color);
+}
+
+.add-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  font-weight: bold;
+  color: var(--text-color);
+  padding: 0.5rem 1rem;
+  border: 2px dashed var(--border-color);
+  border-radius: 4px;
+}
+
+.add-btn:hover {
+  background-color: rgba(0,0,0,0.05);
+  border-color: var(--text-color);
+}
+
+/* Metadata section */
+.metadata {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  border-bottom: 2px solid var(--text-color);
+  padding-bottom: 0.5rem;
+}
+
+.meta-item {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.meta-label {
+  font-weight: bold;
+}

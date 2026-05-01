@@ -1,0 +1,41 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+:root {
+  --bg-color: #f4f6f8;
+  --text-color: #1a1a1a;
+  --border-color: #a0aab5;
+  --header-bg: #008f51; /* Aviation Green */
+  --header-text: #ffffff;
+  --row-bg: #ffffff;
+  --row-alt-bg: #fdfdfd;
+  --highlight-color: #ffeb3b; /* Yellow warning/highlight */
+  --stamp-color: #d32f2f; /* Red stamp */
+  --font-mono: 'Space Mono', 'Courier New', Courier, monospace;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-mono);
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  padding-bottom: 4rem;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button {
+  font-family: var(--font-mono);
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+input {
+  font-family: var(--font-mono);
+}
