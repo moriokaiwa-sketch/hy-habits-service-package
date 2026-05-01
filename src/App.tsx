@@ -63,7 +63,7 @@ function App() {
     setHabits(habits.map(h => h.id === id ? { ...h, isSkipped: !h.isSkipped, isDone: false } : h));
   };
 
-  const pressTimer = useRef<NodeJS.Timeout | null>(null);
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleTouchStart = (id: string) => {
     if (isEditMode) return;
