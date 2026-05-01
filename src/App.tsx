@@ -107,7 +107,7 @@ function App() {
     <div className={`app-container ${isEditMode ? 'edit-mode' : 'execution-mode'}`}>
       <div className="header-top">
         <div className="document-title">
-          <div className="card-title">MY HABITS SERVICE-PACKAGE</div>
+          <div className="card-title">HABITS CARD</div>
         </div>
         <div className="mode-toggle">
           <span>{isEditMode ? 'Edit Mode' : 'Execution Mode'}</span>
