@@ -291,3 +291,30 @@ input:checked + .slider:before {
 .meta-label {
   font-weight: bold;
 }
+
+/* Responsive Styles */
+@media (max-width: 600px) {
+  .header-top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .card-title {
+    font-size: 1.1rem;
+    padding: 0.4rem 0.6rem;
+  }
+
+  .mode-toggle {
+    align-self: flex-end;
+  }
+
+  .metadata {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .task-cell {
+    padding: 0.75rem 0.5rem;
+  }
+}
