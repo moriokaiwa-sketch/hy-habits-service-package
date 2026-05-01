@@ -68,7 +68,7 @@ function App() {
   const handleTouchStart = (id: string) => {
     if (isEditMode) return;
     pressTimer.current = setTimeout(() => {
-      if (window.confirm("やむを得ない事情でこの項目をスキップ（グレーアウト）しますか？")) {
+      if (window.confirm("この項目を削除しますか？")) {
         toggleSkipped(id);
       }
     }, 800);
@@ -84,7 +84,7 @@ function App() {
   const handleContextMenu = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     if (isEditMode) return;
-    if (window.confirm("やむを得ない事情でこの項目をスキップ（グレーアウト）しますか？")) {
+    if (window.confirm("この項目を削除しますか？")) {
       toggleSkipped(id);
     }
   };
