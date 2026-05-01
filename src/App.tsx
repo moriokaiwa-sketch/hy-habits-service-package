@@ -89,6 +89,34 @@ function App() {
     }
   };
 
+  const resetCard = () => {
+    setHabits(habits.map(h => ({ ...h, isDone: false, isSkipped: false })));
+  };
+
+  const titlePressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleTitleTouchStart = () => {
+    titlePressTimer.current = setTimeout(() => {
+      if (window.confirm("新しいCARDを発行しますか？")) {
+        resetCard();
+      }
+    }, 800);
+  };
+
+  const handleTitleTouchEnd = () => {
+    if (titlePressTimer.current) {
+      clearTimeout(titlePressTimer.current);
+      titlePressTimer.current = null;
+    }
+  };
+
+  const handleTitleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (window.confirm("新しいCARDを発行しますか？")) {
+      resetCard();
+    }
+  };
+
   const deleteHabit = (id: string) => {
     setHabits(habits.filter(h => h.id !== id));
   };
@@ -107,7 +135,19 @@ function App() {
     <div className={`app-container ${isEditMode ? 'edit-mode' : 'execution-mode'}`}>
       <div className="header-top">
         <div className="document-title">
-          <div className="card-title">HABITS CARD</div>
+          <div 
+            className="card-title"
+            onTouchStart={handleTitleTouchStart}
+            onTouchEnd={handleTitleTouchEnd}
+            onTouchMove={handleTitleTouchEnd}
+            onMouseDown={handleTitleTouchStart}
+            onMouseUp={handleTitleTouchEnd}
+            onMouseLeave={handleTitleTouchEnd}
+            onContextMenu={handleTitleContextMenu}
+            style={{ cursor: 'pointer', userSelect: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
+          >
+            HABITS CARD
+          </div>
         </div>
         <div className="mode-toggle">
           <span>{isEditMode ? 'Edit Mode' : 'Execution Mode'}</span>
