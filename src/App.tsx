@@ -82,10 +82,7 @@ function App() {
       </div>
 
       <div className="metadata">
-        <div className="meta-item">
-          <span className="meta-label">Card No:</span>
-          <span>AG-001</span>
-        </div>
+
         <div className="meta-item">
           <span className="meta-label">Issue Date(JST):</span>
           <span>{getTodayDate()}</span>
