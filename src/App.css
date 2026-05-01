@@ -154,7 +154,8 @@ input:checked + .slider:before {
 
 /* Skipped/Grayed out state */
 .habit-row.is-skipped .done-cell,
-.habit-row.is-skipped .action-cell {
+.habit-row.is-skipped .action-cell,
+.habit-row.is-skipped .task-cell {
   background-color: #e0e0e0;
 }
 
