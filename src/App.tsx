@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import './App.css';
 
@@ -6,6 +6,7 @@ interface Habit {
   id: string;
   task: string;
   isDone: boolean;
+  isSkipped?: boolean;
 }
 
 const initialData: Habit[] = [
@@ -49,7 +50,43 @@ function App() {
 
   const toggleDone = (id: string) => {
     if (isEditMode) return;
-    setHabits(habits.map(h => h.id === id ? { ...h, isDone: !h.isDone } : h));
+    setHabits(habits.map(h => {
+      if (h.id === id && !h.isSkipped) {
+        return { ...h, isDone: !h.isDone };
+      }
+      return h;
+    }));
+  };
+
+  const toggleSkipped = (id: string) => {
+    if (isEditMode) return;
+    setHabits(habits.map(h => h.id === id ? { ...h, isSkipped: !h.isSkipped, isDone: false } : h));
+  };
+
+  const pressTimer = useRef<NodeJS.Timeout | null>(null);
+
+  const handleTouchStart = (id: string) => {
+    if (isEditMode) return;
+    pressTimer.current = setTimeout(() => {
+      if (window.confirm("やむを得ない事情でこの項目をスキップ（グレーアウト）しますか？")) {
+        toggleSkipped(id);
+      }
+    }, 800);
+  };
+
+  const handleTouchEnd = () => {
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+  };
+
+  const handleContextMenu = (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    if (isEditMode) return;
+    if (window.confirm("やむを得ない事情でこの項目をスキップ（グレーアウト）しますか？")) {
+      toggleSkipped(id);
+    }
   };
 
   const deleteHabit = (id: string) => {
@@ -118,7 +155,7 @@ function App() {
                       <div
                         ref={provided.innerRef}
                         {...provided.draggableProps}
-                        className={`habit-row ${snapshot.isDragging ? 'is-dragging' : ''}`}
+                        className={`habit-row ${snapshot.isDragging ? 'is-dragging' : ''} ${habit.isSkipped && !isEditMode ? 'is-skipped' : ''}`}
                       >
                         <div className="task-cell">
                           {isEditMode && (
@@ -145,8 +182,16 @@ function App() {
                           <div 
                             className="done-cell" 
                             onClick={() => toggleDone(habit.id)}
+                            onTouchStart={() => handleTouchStart(habit.id)}
+                            onTouchEnd={handleTouchEnd}
+                            onTouchMove={handleTouchEnd}
+                            onMouseDown={() => handleTouchStart(habit.id)}
+                            onMouseUp={handleTouchEnd}
+                            onMouseLeave={handleTouchEnd}
+                            onContextMenu={(e) => handleContextMenu(e, habit.id)}
                           >
                             {habit.isDone && <div className="stamp">済</div>}
+                            {habit.isSkipped && <div className="slash-line"></div>}
                           </div>
                         ) : (
                           <div className="action-cell">
