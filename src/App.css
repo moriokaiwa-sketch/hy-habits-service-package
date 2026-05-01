@@ -130,6 +130,13 @@ input:checked + .slider:before {
   transition: background-color 0.2s;
 }
 
+/* Disable text selection in Execution mode */
+.execution-mode .habit-row {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 .habit-row:last-child {
   border-bottom: none;
 }
@@ -200,6 +207,10 @@ input:checked + .slider:before {
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Disable text selection and callout on iOS for long press */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .done-cell:hover {
