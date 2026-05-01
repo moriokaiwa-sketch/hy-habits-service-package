@@ -87,10 +87,7 @@ function App() {
           <span className="meta-label">Issue Date(JST):</span>
           <span>{getTodayDate()}</span>
         </div>
-        <div className="meta-item">
-          <span className="meta-label">Revision:</span>
-          <span>01</span>
-        </div>
+
       </div>
 
       <div className="table-container">
