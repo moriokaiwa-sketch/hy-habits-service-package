@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import SignatureCanvas from 'react-signature-canvas';
 import './App.css';
 
 interface Habit {
@@ -74,12 +75,14 @@ function App() {
     return defaultCategories;
   });
 
-  const [isCardCompleted, setIsCardCompleted] = useState(() => {
-    const saved = localStorage.getItem('isCardCompleted');
-    return saved ? JSON.parse(saved) : false;
+  const [signature, setSignature] = useState<string | null>(() => {
+    const saved = localStorage.getItem('signature');
+    return saved ? saved : null;
   });
 
   const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
+  const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
+  const signaturePadRef = useRef<SignatureCanvas>(null);
 
   useEffect(() => {
     localStorage.setItem('currentShift', currentShift);
@@ -103,18 +106,22 @@ function App() {
   }, [categories, isEditMode, currentShift]);
 
   useEffect(() => {
-    localStorage.setItem('isCardCompleted', JSON.stringify(isCardCompleted));
-  }, [isCardCompleted]);
+    if (signature) {
+      localStorage.setItem('signature', signature);
+    } else {
+      localStorage.removeItem('signature');
+    }
+  }, [signature]);
 
   const totalTasks = categories.reduce((sum, cat) => sum + cat.items.length, 0);
   const completedOrSkippedTasks = categories.reduce((sum, cat) => sum + cat.items.filter(t => t.isDone || t.isSkipped).length, 0);
   const isAllTasksCompleted = totalTasks > 0 && totalTasks === completedOrSkippedTasks;
 
   useEffect(() => {
-    if (isCardCompleted && !isAllTasksCompleted) {
-      setIsCardCompleted(false);
+    if (signature && !isAllTasksCompleted) {
+      setSignature(null);
     }
-  }, [isAllTasksCompleted, isCardCompleted]);
+  }, [isAllTasksCompleted, signature]);
 
   const toggleMode = () => setIsEditMode(!isEditMode);
 
@@ -251,7 +258,7 @@ function App() {
     
     setCategories(newCategories);
     setCurrentShift(shift);
-    setIsCardCompleted(false);
+    setSignature(null);
     setIsShiftModalOpen(false);
   };
 
@@ -452,16 +459,11 @@ function App() {
               className={`done-cell complete-check-done ${!isAllTasksCompleted ? 'disabled' : ''}`}
               onClick={() => {
                 if (isAllTasksCompleted) {
-                  const newState = !isCardCompleted;
-                  setIsCardCompleted(newState);
-                  // Temporary reward alert
-                  if (newState) {
-                    setTimeout(() => alert("Reward feature coming soon!"), 100);
-                  }
+                  setIsSignatureModalOpen(true);
                 }
               }}
             >
-              {isCardCompleted && <div className="stamp">済</div>}
+              {signature && <img src={signature} alt="Signature" className="signature-img" />}
             </div>
           ) : (
             <div className="action-cell">
@@ -476,6 +478,42 @@ function App() {
           <button className="add-category-btn" onClick={addCategory}>
             ＋ Add Category
           </button>
+        </div>
+      )}
+
+      {isSignatureModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content signature-modal-content">
+            <h3 className="modal-title">Sign to Complete</h3>
+            <div className="signature-canvas-wrapper">
+              <SignatureCanvas 
+                ref={signaturePadRef} 
+                penColor="black"
+                canvasProps={{ className: 'signature-canvas' }}
+              />
+            </div>
+            <div className="signature-buttons">
+              <button className="cancel-btn" onClick={() => setIsSignatureModalOpen(false)}>Cancel</button>
+              <button className="clear-btn" onClick={() => signaturePadRef.current?.clear()}>Clear</button>
+              <button 
+                className="done-btn" 
+                onClick={() => {
+                  if (signaturePadRef.current?.isEmpty()) {
+                    alert("Please provide a signature first.");
+                    return;
+                  }
+                  const dataURL = signaturePadRef.current?.getTrimmedCanvas().toDataURL('image/png');
+                  if (dataURL) {
+                    setSignature(dataURL);
+                    setIsSignatureModalOpen(false);
+                    setTimeout(() => alert("Reward feature coming soon!"), 100);
+                  }
+                }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
