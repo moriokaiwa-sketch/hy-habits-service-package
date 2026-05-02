@@ -67,7 +67,7 @@
 .time-display {
   font-weight: bold;
   font-size: 1.1rem;
-  color: var(--stamp-color);
+  color: var(--text-color);
 }
 
 .time-input {
