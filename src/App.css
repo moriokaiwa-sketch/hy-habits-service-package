@@ -442,3 +442,36 @@ input:checked + .slider:before {
     padding: 0.75rem 0.5rem;
   }
 }
+
+/* Complete Check */
+.complete-check-container {
+  margin-top: 1rem;
+  margin-bottom: 2rem;
+  border: 3px solid var(--header-bg);
+}
+
+.complete-check-row {
+  background-color: var(--row-bg);
+}
+
+.complete-check-task {
+  font-weight: bold;
+  font-size: 1.1rem;
+  background-color: #e8f5e9;
+  color: var(--header-bg);
+  justify-content: center;
+}
+
+.complete-check-done {
+  background-color: #e8f5e9;
+}
+
+.complete-check-done.disabled {
+  background-color: #e0e0e0;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.complete-check-done.disabled:hover {
+  background-color: #e0e0e0;
+}

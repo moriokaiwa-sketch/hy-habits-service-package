@@ -52,9 +52,28 @@ function App() {
     return defaultCategories;
   });
 
+  const [isCardCompleted, setIsCardCompleted] = useState(() => {
+    const saved = localStorage.getItem('isCardCompleted');
+    return saved ? JSON.parse(saved) : false;
+  });
+
   useEffect(() => {
     localStorage.setItem('categories', JSON.stringify(categories));
   }, [categories]);
+
+  useEffect(() => {
+    localStorage.setItem('isCardCompleted', JSON.stringify(isCardCompleted));
+  }, [isCardCompleted]);
+
+  const totalTasks = categories.reduce((sum, cat) => sum + cat.items.length, 0);
+  const completedOrSkippedTasks = categories.reduce((sum, cat) => sum + cat.items.filter(t => t.isDone || t.isSkipped).length, 0);
+  const isAllTasksCompleted = totalTasks > 0 && totalTasks === completedOrSkippedTasks;
+
+  useEffect(() => {
+    if (isCardCompleted && !isAllTasksCompleted) {
+      setIsCardCompleted(false);
+    }
+  }, [isAllTasksCompleted, isCardCompleted]);
 
   const toggleMode = () => setIsEditMode(!isEditMode);
 
@@ -163,6 +182,7 @@ function App() {
       ...c,
       items: c.items.map(t => ({ ...t, isDone: false, isSkipped: false }))
     })));
+    setIsCardCompleted(false);
   };
 
   const titlePressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -373,6 +393,36 @@ function App() {
           </div>
         ))}
       </DragDropContext>
+
+      <div className="table-container complete-check-container">
+        <div className="habit-row complete-check-row">
+          <div className="task-cell complete-check-task">
+            <span>Complete Check</span>
+          </div>
+
+          {!isEditMode ? (
+            <div 
+              className={`done-cell complete-check-done ${!isAllTasksCompleted ? 'disabled' : ''}`}
+              onClick={() => {
+                if (isAllTasksCompleted) {
+                  const newState = !isCardCompleted;
+                  setIsCardCompleted(newState);
+                  // Temporary reward alert
+                  if (newState) {
+                    setTimeout(() => alert("Reward feature coming soon!"), 100);
+                  }
+                }
+              }}
+            >
+              {isCardCompleted && <div className="stamp">済</div>}
+            </div>
+          ) : (
+            <div className="action-cell">
+              <span style={{ opacity: 0.5, fontSize: '1.2rem' }} title="System fixed item">🔒</span>
+            </div>
+          )}
+        </div>
+      </div>
 
       {isEditMode && (
         <div className="add-category-wrapper">
