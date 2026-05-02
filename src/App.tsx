@@ -85,6 +85,22 @@ function App() {
   const signaturePadRef = useRef<SignatureCanvas>(null);
 
   useEffect(() => {
+    if (isSignatureModalOpen && signaturePadRef.current) {
+      const timer = setTimeout(() => {
+        const canvas = signaturePadRef.current?.getCanvas();
+        if (canvas) {
+          const ratio = Math.max(window.devicePixelRatio || 1, 1);
+          canvas.width = canvas.offsetWidth * ratio;
+          canvas.height = canvas.offsetHeight * ratio;
+          canvas.getContext("2d")?.scale(ratio, ratio);
+          signaturePadRef.current?.clear();
+        }
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [isSignatureModalOpen]);
+
+  useEffect(() => {
     localStorage.setItem('currentShift', currentShift);
   }, [currentShift]);
 
@@ -489,6 +505,9 @@ function App() {
               <SignatureCanvas 
                 ref={signaturePadRef} 
                 penColor="black"
+                minWidth={1.5}
+                maxWidth={4}
+                velocityFilterWeight={0.7}
                 canvasProps={{ className: 'signature-canvas' }}
               />
             </div>
