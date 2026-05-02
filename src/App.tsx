@@ -464,6 +464,14 @@ function App() {
         ))}
       </DragDropContext>
 
+      {isEditMode && (
+        <div className="add-category-wrapper">
+          <button className="add-category-btn" onClick={addCategory}>
+            ＋ Add Category
+          </button>
+        </div>
+      )}
+
       <div className="table-container complete-check-container">
         <div className="habit-row complete-check-row">
           <div className="task-cell complete-check-task">
@@ -488,14 +496,6 @@ function App() {
           )}
         </div>
       </div>
-
-      {isEditMode && (
-        <div className="add-category-wrapper">
-          <button className="add-category-btn" onClick={addCategory}>
-            ＋ Add Category
-          </button>
-        </div>
-      )}
 
       {isSignatureModalOpen && (
         <div className="modal-overlay">
