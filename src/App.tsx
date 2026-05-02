@@ -26,27 +26,49 @@ const defaultCategories: Category[] = [
   { id: "cat-general", name: "General", items: defaultHabits }
 ];
 
+const SHIFTS = ["日勤", "遅番", "夜勤", "夜勤明け", "休日"];
+
 function App() {
   const [isEditMode, setIsEditMode] = useState(false);
-  const [categories, setCategories] = useState<Category[]>(() => {
-    const savedHabits = localStorage.getItem('habits'); // Check for old flat list
-    const savedCategories = localStorage.getItem('categories');
+  
+  const [currentShift, setCurrentShift] = useState<string>(() => {
+    const saved = localStorage.getItem('currentShift');
+    return saved ? saved : "日勤";
+  });
+
+  const [templates, setTemplates] = useState<Record<string, Category[]>>(() => {
+    const savedTemplates = localStorage.getItem('templates');
+    if (savedTemplates) {
+      try {
+        return JSON.parse(savedTemplates);
+      } catch (e) {
+        // ignore
+      }
+    }
     
+    // Migration: If no templates, use existing categories as base for all shifts
+    const currentSaved = localStorage.getItem('categories');
+    const baseCategories = currentSaved ? JSON.parse(currentSaved) : defaultCategories;
+    
+    const cleanBase = baseCategories.map((c: Category) => ({
+      ...c,
+      items: c.items.map(t => ({ ...t, isDone: false, isSkipped: false }))
+    }));
+
+    const initialTemplates: Record<string, Category[]> = {};
+    SHIFTS.forEach(shift => {
+      initialTemplates[shift] = cleanBase;
+    });
+    return initialTemplates;
+  });
+
+  const [categories, setCategories] = useState<Category[]>(() => {
+    const savedCategories = localStorage.getItem('categories');
     if (savedCategories) {
       try {
         return JSON.parse(savedCategories);
       } catch (e) {
         return defaultCategories;
-      }
-    } else if (savedHabits) {
-      // Migrate old data
-      try {
-        const oldHabits = JSON.parse(savedHabits);
-        if (Array.isArray(oldHabits) && oldHabits.length > 0) {
-          return [{ id: "cat-general", name: "General", items: oldHabits }];
-        }
-      } catch (e) {
-        // ignore
       }
     }
     return defaultCategories;
@@ -57,9 +79,28 @@ function App() {
     return saved ? JSON.parse(saved) : false;
   });
 
+  const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('currentShift', currentShift);
+  }, [currentShift]);
+
+  useEffect(() => {
+    localStorage.setItem('templates', JSON.stringify(templates));
+  }, [templates]);
+
   useEffect(() => {
     localStorage.setItem('categories', JSON.stringify(categories));
-  }, [categories]);
+    
+    // Auto-save to template when editing
+    if (isEditMode) {
+      const cleanCategories = categories.map(c => ({
+        ...c,
+        items: c.items.map(t => ({ ...t, isDone: false, isSkipped: false }))
+      }));
+      setTemplates(prev => ({ ...prev, [currentShift]: cleanCategories }));
+    }
+  }, [categories, isEditMode, currentShift]);
 
   useEffect(() => {
     localStorage.setItem('isCardCompleted', JSON.stringify(isCardCompleted));
@@ -177,21 +218,15 @@ function App() {
     }
   };
 
-  const resetCard = () => {
-    setCategories(categories.map(c => ({
-      ...c,
-      items: c.items.map(t => ({ ...t, isDone: false, isSkipped: false }))
-    })));
-    setIsCardCompleted(false);
-  };
-
   const titlePressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const openShiftModal = () => {
+    setIsShiftModalOpen(true);
+  };
 
   const handleTitleTouchStart = () => {
     titlePressTimer.current = setTimeout(() => {
-      if (window.confirm("新しいCARDを発行しますか？")) {
-        resetCard();
-      }
+      openShiftModal();
     }, 800);
   };
 
@@ -204,9 +239,20 @@ function App() {
 
   const handleTitleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
-    if (window.confirm("新しいCARDを発行しますか？")) {
-      resetCard();
-    }
+    openShiftModal();
+  };
+
+  const loadShiftTemplate = (shift: string) => {
+    const template = templates[shift] || [];
+    const newCategories = template.map(c => ({
+      ...c,
+      items: c.items.map(t => ({ ...t, isDone: false, isSkipped: false }))
+    }));
+    
+    setCategories(newCategories);
+    setCurrentShift(shift);
+    setIsCardCompleted(false);
+    setIsShiftModalOpen(false);
   };
 
   const deleteHabit = (categoryId: string, taskId: string) => {
@@ -263,12 +309,13 @@ function App() {
               onMouseLeave={handleTitleTouchEnd}
               onContextMenu={handleTitleContextMenu}
               style={{ cursor: 'pointer', userSelect: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
+              title="Long press or right-click to issue a new card"
             >
               HABITS CARD
             </div>
           </div>
           <div className="issue-date">
-            Issue date: {getTodayDate()}
+            Issue date: {getTodayDate()} <span className="shift-badge">[{currentShift}]</span>
           </div>
         </div>
         <div className="mode-toggle">
@@ -429,6 +476,27 @@ function App() {
           <button className="add-category-btn" onClick={addCategory}>
             ＋ Add Category
           </button>
+        </div>
+      )}
+
+      {isShiftModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsShiftModalOpen(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <h3 className="modal-title">新しいCARDを発行</h3>
+            <p className="modal-subtitle">シフトを選択してください</p>
+            <div className="shift-buttons">
+              {SHIFTS.map(shift => (
+                <button 
+                  key={shift} 
+                  className={`shift-btn ${shift === currentShift ? 'active' : ''}`}
+                  onClick={() => loadShiftTemplate(shift)}
+                >
+                  {shift}
+                </button>
+              ))}
+            </div>
+            <button className="cancel-btn" onClick={() => setIsShiftModalOpen(false)}>Cancel</button>
+          </div>
         </div>
       )}
     </div>
