@@ -264,32 +264,25 @@ function App() {
       <DragDropContext onDragEnd={handleDragEnd}>
         {categories.map((category) => (
           <div key={category.id} className="table-container category-table">
-            <div className="table-header">
-              <div className="col-task category-header-name">
-                {isEditMode ? (
-                  <div className="category-edit-wrapper">
-                    <input
-                      className="category-input"
-                      value={category.name}
-                      onChange={(e) => handleCategoryNameChange(category.id, e.target.value)}
-                      placeholder="Category Name"
-                    />
-                    <button 
-                      className="delete-category-btn"
-                      onClick={() => deleteCategory(category.id)}
-                      title="Delete category"
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                ) : (
-                  category.name
-                )}
-              </div>
-              {!isEditMode ? (
-                <div className="col-done category-header-blank"></div>
+            <div className="table-header category-header-single">
+              {isEditMode ? (
+                <div className="category-edit-wrapper">
+                  <input
+                    className="category-input"
+                    value={category.name}
+                    onChange={(e) => handleCategoryNameChange(category.id, e.target.value)}
+                    placeholder="Category Name"
+                  />
+                  <button 
+                    className="delete-category-btn"
+                    onClick={() => deleteCategory(category.id)}
+                    title="Delete category"
+                  >
+                    🗑️
+                  </button>
+                </div>
               ) : (
-                <div className="col-action category-header-blank"></div>
+                category.name
               )}
             </div>
 

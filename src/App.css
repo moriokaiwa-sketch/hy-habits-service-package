@@ -135,14 +135,13 @@ input:checked + .slider:before {
   background-color: var(--task-bg);
 }
 
-.category-header-name {
-  background-color: var(--task-bg) !important;
+.category-header-single {
+  width: 100%;
+  background-color: #e0e0e0;
+  padding: 0.75rem 1rem;
   font-size: 1.1rem;
   color: var(--text-color);
-}
-
-.category-header-blank {
-  background-color: #e0e0e0 !important;
+  box-sizing: border-box;
 }
 
 .category-edit-wrapper {
@@ -417,9 +416,10 @@ input:checked + .slider:before {
   }
 
   .title-area {
-    flex-direction: column;
-    align-items: flex-start;
+    flex-direction: row;
+    align-items: flex-end;
     gap: 0.5rem;
+    flex-wrap: wrap;
   }
 
   .card-title {
