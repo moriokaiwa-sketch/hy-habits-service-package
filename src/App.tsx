@@ -8,6 +8,7 @@ interface Habit {
   task: string;
   isDone: boolean;
   isSkipped?: boolean;
+  time?: string;
 }
 
 interface Category {
@@ -178,6 +179,18 @@ function App() {
         return {
           ...c,
           items: c.items.map(t => t.id === taskId ? { ...t, task: newTaskName } : t)
+        };
+      }
+      return c;
+    }));
+  };
+
+  const handleTimeChange = (categoryId: string, taskId: string, newTime: string) => {
+    setCategories(categories.map(c => {
+      if (c.id === categoryId) {
+        return {
+          ...c,
+          items: c.items.map(t => t.id === taskId ? { ...t, time: newTime } : t)
         };
       }
       return c;
@@ -415,6 +428,22 @@ function App() {
                               />
                             ) : (
                               <span>{habit.task}</span>
+                            )}
+                          </div>
+
+                          <div className="time-cell">
+                            {isEditMode ? (
+                              <input
+                                className="time-input"
+                                type="number"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                value={habit.time || ''}
+                                onChange={(e) => handleTimeChange(category.id, habit.id, e.target.value)}
+                                placeholder="-"
+                              />
+                            ) : (
+                              <span className="time-display">{habit.time}</span>
                             )}
                           </div>
 

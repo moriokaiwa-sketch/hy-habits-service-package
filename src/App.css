@@ -46,6 +46,61 @@
   padding-bottom: 0.4rem;
 }
 
+.header-div.task-input:focus {
+  outline: none;
+  border-bottom: 2px solid var(--text-color);
+}
+
+/* Time cell */
+.time-cell {
+  width: 50px;
+  min-width: 50px;
+  border-right: 2px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--task-bg);
+  padding: 0.25rem;
+  box-sizing: border-box;
+}
+
+.time-display {
+  font-weight: bold;
+  font-size: 1.1rem;
+  color: var(--stamp-color);
+}
+
+.time-input {
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  border: 1px dashed var(--border-color);
+  background: transparent;
+  font-size: 1rem;
+  font-weight: bold;
+  font-family: inherit;
+  color: inherit;
+  box-sizing: border-box;
+  padding: 0.25rem 0;
+}
+
+.time-input:focus {
+  outline: none;
+  border: 1px solid var(--text-color);
+  background-color: #fff;
+}
+
+/* Hide number input spinners */
+.time-input::-webkit-outer-spin-button,
+.time-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.time-input[type=number] {
+  -moz-appearance: textfield;
+}
+
+/* Done cell */
 .header-divider {
   border: none;
   border-bottom: 2px solid var(--text-color);
@@ -226,11 +281,13 @@ input:checked + .slider:before {
 /* Skipped/Grayed out state */
 .habit-row.is-skipped .done-cell,
 .habit-row.is-skipped .action-cell,
+.habit-row.is-skipped .time-cell,
 .habit-row.is-skipped .task-cell {
   background-color: #e0e0e0;
 }
 
-.habit-row.is-skipped .task-cell span {
+.habit-row.is-skipped .task-cell span,
+.habit-row.is-skipped .time-cell span {
   opacity: 0.7;
 }
 
@@ -448,6 +505,11 @@ input:checked + .slider:before {
 
   .task-cell {
     padding: 0.75rem 0.5rem;
+  }
+  
+  .time-cell {
+    width: 40px;
+    min-width: 40px;
   }
 }
 
