@@ -500,13 +500,14 @@ input:checked + .slider:before {
 
 .modal-content {
   background-color: var(--bg-color);
-  padding: 2rem;
+  padding: 1.5rem;
   border: 3px solid var(--text-color);
   border-radius: 8px;
   width: 90%;
   max-width: 400px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
   text-align: center;
+  box-sizing: border-box;
 }
 
 .modal-title {
@@ -551,7 +552,7 @@ input:checked + .slider:before {
 }
 
 .cancel-btn {
-  padding: 0.5rem 1.5rem;
+  padding: 0.5rem 1rem;
   font-family: inherit;
   font-size: 1rem;
   font-weight: bold;
@@ -590,7 +591,7 @@ input:checked + .slider:before {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 1rem;
+  gap: 0.5rem;
 }
 
 .clear-btn {
@@ -604,7 +605,7 @@ input:checked + .slider:before {
 }
 
 .done-btn {
-  padding: 0.5rem 2rem;
+  padding: 0.5rem 1.5rem;
   font-family: inherit;
   font-size: 1.1rem;
   font-weight: bold;
