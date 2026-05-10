@@ -221,6 +221,33 @@ input:checked + .slider:before {
   gap: 0.5rem;
 }
 
+.category-reorder-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.reorder-btn {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  font-size: 0.6rem;
+  padding: 0.1rem 0.4rem;
+  line-height: 1;
+  color: var(--text-color);
+  border-radius: 2px;
+  transition: background-color 0.15s;
+}
+
+.reorder-btn:hover:not(:disabled) {
+  background-color: var(--highlight-color);
+}
+
+.reorder-btn:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
 .category-input {
   flex: 1;
   font-family: inherit;

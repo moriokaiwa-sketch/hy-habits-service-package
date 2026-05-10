@@ -391,6 +391,17 @@ function App() {
     setCategories([...categories, { id: newId, name: "New Category", items: [] }]);
   };
 
+  const moveCategory = (categoryId: string, direction: 'up' | 'down') => {
+    const index = categories.findIndex(c => c.id === categoryId);
+    if (index === -1) return;
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === categories.length - 1) return;
+    const newCategories = [...categories];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    [newCategories[index], newCategories[targetIndex]] = [newCategories[targetIndex], newCategories[index]];
+    setCategories(newCategories);
+  };
+
   const getTodayDate = () => {
     const today = new Date();
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -437,6 +448,20 @@ function App() {
             <div className="table-header category-header-single">
               {isEditMode ? (
                 <div className="category-edit-wrapper">
+                  <div className="category-reorder-btns">
+                    <button 
+                      className="reorder-btn" 
+                      onClick={() => moveCategory(category.id, 'up')}
+                      disabled={categories.indexOf(category) === 0}
+                      title="Move up"
+                    >▲</button>
+                    <button 
+                      className="reorder-btn" 
+                      onClick={() => moveCategory(category.id, 'down')}
+                      disabled={categories.indexOf(category) === categories.length - 1}
+                      title="Move down"
+                    >▼</button>
+                  </div>
                   <input
                     className="category-input"
                     value={category.name}
