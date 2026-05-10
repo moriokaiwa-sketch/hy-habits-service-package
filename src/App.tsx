@@ -83,8 +83,21 @@ function App() {
 
   const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  
+  const [googleApiKey, setGoogleApiKey] = useState(() => localStorage.getItem('googleApiKey') || '');
+  const [searchEngineId, setSearchEngineId] = useState(() => localStorage.getItem('searchEngineId') || '');
+  const [rewardKeywords, setRewardKeywords] = useState(() => localStorage.getItem('rewardKeywords') || '');
+  const [rewardImage, setRewardImage] = useState<string | null>(() => localStorage.getItem('rewardImage') || null);
+  const [isFetchingReward, setIsFetchingReward] = useState(false);
+  
   const signaturePadRef = useRef<SignatureCanvas>(null);
 
+  useEffect(() => {
+    localStorage.setItem('googleApiKey', googleApiKey);
+    localStorage.setItem('searchEngineId', searchEngineId);
+    localStorage.setItem('rewardKeywords', rewardKeywords);
+  }, [googleApiKey, searchEngineId, rewardKeywords]);
   useEffect(() => {
     if (isSignatureModalOpen && signaturePadRef.current) {
       const timer = setTimeout(() => {
@@ -130,6 +143,14 @@ function App() {
     }
   }, [signature]);
 
+  useEffect(() => {
+    if (rewardImage) {
+      localStorage.setItem('rewardImage', rewardImage);
+    } else {
+      localStorage.removeItem('rewardImage');
+    }
+  }, [rewardImage]);
+
   const totalTasks = categories.reduce((sum, cat) => sum + cat.items.length, 0);
   const completedOrSkippedTasks = categories.reduce((sum, cat) => sum + cat.items.filter(t => t.isDone || t.isSkipped).length, 0);
   const isAllTasksCompleted = totalTasks > 0 && totalTasks === completedOrSkippedTasks;
@@ -137,8 +158,34 @@ function App() {
   useEffect(() => {
     if (signature && !isAllTasksCompleted) {
       setSignature(null);
+      setRewardImage(null);
     }
   }, [isAllTasksCompleted, signature]);
+
+  const fetchRewardImage = async () => {
+    if (!googleApiKey || !searchEngineId || !rewardKeywords) return;
+    
+    setIsFetchingReward(true);
+    try {
+      const keywordsArray = rewardKeywords.split(',').map(k => k.trim()).filter(k => k);
+      if (keywordsArray.length === 0) return;
+      
+      const randomKeyword = keywordsArray[Math.floor(Math.random() * keywordsArray.length)];
+      const startIndex = Math.floor(Math.random() * 10) + 1;
+      
+      const response = await fetch(`https://www.googleapis.com/customsearch/v1?key=${googleApiKey}&cx=${searchEngineId}&q=${encodeURIComponent(randomKeyword)}&searchType=image&num=10&start=${startIndex}`);
+      
+      const data = await response.json();
+      if (data.items && data.items.length > 0) {
+        const randomItem = data.items[Math.floor(Math.random() * data.items.length)];
+        setRewardImage(randomItem.link);
+      }
+    } catch (error) {
+      console.error("Failed to fetch reward image", error);
+    } finally {
+      setIsFetchingReward(false);
+    }
+  };
 
   const toggleMode = () => setIsEditMode(!isEditMode);
 
@@ -288,6 +335,7 @@ function App() {
     setCategories(newCategories);
     setCurrentShift(shift);
     setSignature(null);
+    setRewardImage(null);
     setIsShiftModalOpen(false);
   };
 
@@ -360,6 +408,7 @@ function App() {
             <input type="checkbox" checked={isEditMode} onChange={toggleMode} />
             <span className="slider"></span>
           </label>
+          <button className="settings-btn" onClick={() => setIsSettingsModalOpen(true)} title="Reward Settings">⚙️</button>
         </div>
       </div>
       <hr className="header-divider" />
@@ -554,7 +603,9 @@ function App() {
                   if (dataURL) {
                     setSignature(dataURL);
                     setIsSignatureModalOpen(false);
-                    setTimeout(() => alert("Reward feature coming soon!"), 100);
+                    if (!rewardImage && googleApiKey && searchEngineId && rewardKeywords) {
+                      fetchRewardImage();
+                    }
                   }
                 }}
               >
@@ -562,6 +613,43 @@ function App() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {isSettingsModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsSettingsModalOpen(false)}>
+          <div className="modal-content settings-modal" onClick={e => e.stopPropagation()}>
+            <h3 className="modal-title">Reward Settings</h3>
+            <p className="settings-desc">Google Custom Search APIを設定し、推しのご褒美画像をランダムに表示します。</p>
+            
+            <div className="settings-field">
+              <label>API Key</label>
+              <input type="text" value={googleApiKey} onChange={e => setGoogleApiKey(e.target.value)} placeholder="AIzaSy..." />
+            </div>
+            
+            <div className="settings-field">
+              <label>Search Engine ID (cx)</label>
+              <input type="text" value={searchEngineId} onChange={e => setSearchEngineId(e.target.value)} placeholder="e.g. 12345abcdef" />
+            </div>
+            
+            <div className="settings-field">
+              <label>Keywords (カンマ区切り)</label>
+              <input type="text" value={rewardKeywords} onChange={e => setRewardKeywords(e.target.value)} placeholder="例: 乃木坂46, 犬, ハワイ" />
+            </div>
+            
+            <button className="done-btn" style={{marginTop: '1.5rem', width: '100%'}} onClick={() => setIsSettingsModalOpen(false)}>Save & Close</button>
+          </div>
+        </div>
+      )}
+
+      {(rewardImage || isFetchingReward) && (
+        <div className="reward-container">
+          <h3 className="reward-title">🎉 REWARD 🎉</h3>
+          {isFetchingReward ? (
+            <div className="reward-loading">Fetching your reward image...</div>
+          ) : (
+            <img src={rewardImage!} alt="Reward" className="reward-image" />
+          )}
         </div>
       )}
 
