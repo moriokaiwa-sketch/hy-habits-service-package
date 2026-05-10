@@ -176,13 +176,17 @@ function App() {
     setIsFetchingReward(true);
     setRewardError(null);
     try {
+      const key = googleApiKey.trim();
+      const cx = searchEngineId.trim();
       const keywordsArray = rewardKeywords.split(',').map(k => k.trim()).filter(k => k);
       if (keywordsArray.length === 0) return;
       
       const randomKeyword = keywordsArray[Math.floor(Math.random() * keywordsArray.length)];
       const startIndex = Math.floor(Math.random() * 10) + 1;
       
-      const response = await fetch(`https://www.googleapis.com/customsearch/v1?key=${googleApiKey}&cx=${searchEngineId}&q=${encodeURIComponent(randomKeyword)}&searchType=image&num=10&start=${startIndex}`);
+      const url = `https://www.googleapis.com/customsearch/v1?key=${key}&cx=${cx}&q=${encodeURIComponent(randomKeyword)}&searchType=image&num=10&start=${startIndex}`;
+      console.log('Fetching reward:', url);
+      const response = await fetch(url);
       
       const data = await response.json();
       if (data.error) {
@@ -651,7 +655,33 @@ function App() {
               <input type="text" value={rewardKeywords} onChange={e => setRewardKeywords(e.target.value)} placeholder="例: 乃木坂46, 犬, ハワイ" />
             </div>
             
-            <button className="done-btn" style={{marginTop: '1.5rem', width: '100%'}} onClick={() => setIsSettingsModalOpen(false)}>Save & Close</button>
+            <button 
+              className="clear-btn" 
+              style={{marginTop: '1rem', width: '100%'}} 
+              onClick={async () => {
+                const key = googleApiKey.trim();
+                const cx = searchEngineId.trim();
+                if (!key || !cx) {
+                  alert('API KeyとSearch Engine IDを入力してください。');
+                  return;
+                }
+                try {
+                  const res = await fetch(`https://www.googleapis.com/customsearch/v1?key=${key}&cx=${cx}&q=test&searchType=image&num=1`);
+                  const data = await res.json();
+                  if (data.error) {
+                    alert(`❌ Error: ${data.error.message}\n\nKey: ${key.slice(0,8)}...${key.slice(-4)}\nCX: ${cx}`);
+                  } else {
+                    alert('✅ API接続成功！画像検索は正常に動作します。');
+                  }
+                } catch (e) {
+                  alert(`❌ ネットワークエラー: ${e}`);
+                }
+              }}
+            >
+              🔍 Test API Connection
+            </button>
+            
+            <button className="done-btn" style={{marginTop: '0.5rem', width: '100%'}} onClick={() => setIsSettingsModalOpen(false)}>Save & Close</button>
           </div>
         </div>
       )}
