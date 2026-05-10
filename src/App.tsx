@@ -90,8 +90,10 @@ function App() {
   const [rewardKeywords, setRewardKeywords] = useState(() => localStorage.getItem('rewardKeywords') || '');
   const [rewardImage, setRewardImage] = useState<string | null>(() => localStorage.getItem('rewardImage') || null);
   const [isFetchingReward, setIsFetchingReward] = useState(false);
+  const [rewardError, setRewardError] = useState<string | null>(null);
   
   const signaturePadRef = useRef<SignatureCanvas>(null);
+  const prevIsAllTasksCompleted = useRef<boolean | null>(null);
 
   useEffect(() => {
     localStorage.setItem('googleApiKey', googleApiKey);
@@ -156,16 +158,23 @@ function App() {
   const isAllTasksCompleted = totalTasks > 0 && totalTasks === completedOrSkippedTasks;
 
   useEffect(() => {
-    if (!isAllTasksCompleted) {
+    // 初回マウント時は実行しない。true→falseに変化したときのみリセット
+    if (prevIsAllTasksCompleted.current === true && !isAllTasksCompleted) {
       setSignature(null);
       setRewardImage(null);
+      setRewardError(null);
     }
+    prevIsAllTasksCompleted.current = isAllTasksCompleted;
   }, [isAllTasksCompleted]);
 
   const fetchRewardImage = async () => {
-    if (!googleApiKey || !searchEngineId || !rewardKeywords) return;
+    if (!googleApiKey || !searchEngineId || !rewardKeywords) {
+      setRewardError('⚙️ Reward Settings に APIキー・キーワードを設定してください。');
+      return;
+    }
     
     setIsFetchingReward(true);
+    setRewardError(null);
     try {
       const keywordsArray = rewardKeywords.split(',').map(k => k.trim()).filter(k => k);
       if (keywordsArray.length === 0) return;
@@ -176,12 +185,17 @@ function App() {
       const response = await fetch(`https://www.googleapis.com/customsearch/v1?key=${googleApiKey}&cx=${searchEngineId}&q=${encodeURIComponent(randomKeyword)}&searchType=image&num=10&start=${startIndex}`);
       
       const data = await response.json();
-      if (data.items && data.items.length > 0) {
+      if (data.error) {
+        setRewardError(`API Error: ${data.error.message}`);
+      } else if (data.items && data.items.length > 0) {
         const randomItem = data.items[Math.floor(Math.random() * data.items.length)];
         setRewardImage(randomItem.link);
+      } else {
+        setRewardError('画像が見つかりませんでした。キーワードを変えてみてください。');
       }
     } catch (error) {
       console.error("Failed to fetch reward image", error);
+      setRewardError('ネットワークエラーが発生しました。');
     } finally {
       setIsFetchingReward(false);
     }
@@ -642,11 +656,13 @@ function App() {
         </div>
       )}
 
-      {(rewardImage || isFetchingReward) && (
+      {(rewardImage || isFetchingReward || rewardError) && (
         <div className="reward-container">
           <h3 className="reward-title">🎉 REWARD 🎉</h3>
           {isFetchingReward ? (
             <div className="reward-loading">Fetching your reward image...</div>
+          ) : rewardError ? (
+            <div className="reward-error">{rewardError}</div>
           ) : (
             <img src={rewardImage!} alt="Reward" className="reward-image" />
           )}
