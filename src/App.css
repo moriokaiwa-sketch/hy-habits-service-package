@@ -221,31 +221,23 @@ input:checked + .slider:before {
   gap: 0.5rem;
 }
 
-.category-reorder-btns {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
+.category-drag-handle {
+  cursor: grab;
+  color: #888;
+  font-size: 1.2rem;
+  padding: 0 0.25rem;
+  flex-shrink: 0;
+  touch-action: none;
 }
 
-.reorder-btn {
-  background: transparent;
-  border: 1px solid var(--border-color);
-  cursor: pointer;
-  font-size: 0.6rem;
-  padding: 0.1rem 0.4rem;
-  line-height: 1;
-  color: var(--text-color);
-  border-radius: 2px;
-  transition: background-color 0.15s;
+.category-drag-handle:active {
+  cursor: grabbing;
 }
 
-.reorder-btn:hover:not(:disabled) {
-  background-color: var(--highlight-color);
-}
-
-.reorder-btn:disabled {
-  opacity: 0.25;
-  cursor: default;
+.is-cat-dragging {
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  opacity: 0.95;
+  background-color: #fffde7;
 }
 
 .category-input {

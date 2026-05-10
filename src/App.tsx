@@ -208,9 +208,20 @@ function App() {
   const toggleMode = () => setIsEditMode(!isEditMode);
 
   const handleDragEnd = (result: DropResult) => {
-    const { source, destination } = result;
+    const { source, destination, type } = result;
     if (!destination) return;
 
+    // カテゴリ自体の並び替え
+    if (type === 'CATEGORY') {
+      if (source.index === destination.index) return;
+      const newCategories = Array.from(categories);
+      const [moved] = newCategories.splice(source.index, 1);
+      newCategories.splice(destination.index, 0, moved);
+      setCategories(newCategories);
+      return;
+    }
+
+    // タスクの並び替え（同一カテゴリ内）
     if (source.droppableId === destination.droppableId) {
       const categoryIndex = categories.findIndex(c => c.id === source.droppableId);
       const category = categories[categoryIndex];
@@ -391,16 +402,7 @@ function App() {
     setCategories([...categories, { id: newId, name: "New Category", items: [] }]);
   };
 
-  const moveCategory = (categoryId: string, direction: 'up' | 'down') => {
-    const index = categories.findIndex(c => c.id === categoryId);
-    if (index === -1) return;
-    if (direction === 'up' && index === 0) return;
-    if (direction === 'down' && index === categories.length - 1) return;
-    const newCategories = [...categories];
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    [newCategories[index], newCategories[targetIndex]] = [newCategories[targetIndex], newCategories[index]];
-    setCategories(newCategories);
-  };
+
 
   const getTodayDate = () => {
     const today = new Date();
@@ -443,24 +445,27 @@ function App() {
       <hr className="header-divider" />
 
       <DragDropContext onDragEnd={handleDragEnd}>
-        {categories.map((category) => (
-          <div key={category.id} className="table-container category-table">
+        <Droppable droppableId="categories" type="CATEGORY" isDropDisabled={!isEditMode}>
+          {(catProvided) => (
+            <div ref={catProvided.innerRef} {...catProvided.droppableProps}>
+              {categories.map((category, categoryIndex) => (
+                <Draggable
+                  key={category.id}
+                  draggableId={`cat-drag-${category.id}`}
+                  index={categoryIndex}
+                  isDragDisabled={!isEditMode}
+                >
+                  {(catDrag, catSnapshot) => (
+                  <div
+                    ref={catDrag.innerRef}
+                    {...catDrag.draggableProps}
+                    className={`table-container category-table${catSnapshot.isDragging ? ' is-cat-dragging' : ''}`}
+                  >
             <div className="table-header category-header-single">
               {isEditMode ? (
                 <div className="category-edit-wrapper">
-                  <div className="category-reorder-btns">
-                    <button 
-                      className="reorder-btn" 
-                      onClick={() => moveCategory(category.id, 'up')}
-                      disabled={categories.indexOf(category) === 0}
-                      title="Move up"
-                    >▲</button>
-                    <button 
-                      className="reorder-btn" 
-                      onClick={() => moveCategory(category.id, 'down')}
-                      disabled={categories.indexOf(category) === categories.length - 1}
-                      title="Move down"
-                    >▼</button>
+                  <div className="category-drag-handle" {...catDrag.dragHandleProps} title="Drag to reorder">
+                    ⠿
                   </div>
                   <input
                     className="category-input"
@@ -582,7 +587,13 @@ function App() {
               </div>
             )}
           </div>
-        ))}
+                  )}
+                </Draggable>
+              ))}
+              {catProvided.placeholder}
+            </div>
+          )}
+        </Droppable>
       </DragDropContext>
 
       {isEditMode && (
