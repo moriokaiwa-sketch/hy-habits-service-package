@@ -176,12 +176,22 @@ function App() {
       const response = await fetch(`https://www.googleapis.com/customsearch/v1?key=${googleApiKey}&cx=${searchEngineId}&q=${encodeURIComponent(randomKeyword)}&searchType=image&num=10&start=${startIndex}`);
       
       const data = await response.json();
+      
+      if (data.error) {
+        alert("APIエラーが発生しました: " + data.error.message);
+        console.error("API Error:", data.error);
+        return;
+      }
+      
       if (data.items && data.items.length > 0) {
         const randomItem = data.items[Math.floor(Math.random() * data.items.length)];
         setRewardImage(randomItem.link);
+      } else {
+        alert("「" + randomKeyword + "」の画像が見つかりませんでした。別のキーワードを試してください。");
       }
     } catch (error) {
       console.error("Failed to fetch reward image", error);
+      alert("画像の取得中に通信エラーが発生しました。");
     } finally {
       setIsFetchingReward(false);
     }
