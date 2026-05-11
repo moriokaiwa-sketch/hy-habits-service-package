@@ -471,6 +471,7 @@ function App() {
                     className="category-input"
                     value={category.name}
                     onChange={(e) => handleCategoryNameChange(category.id, e.target.value)}
+                    onFocus={(e) => e.target.select()}
                     placeholder="Category Name"
                   />
                   <button 
