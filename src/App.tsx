@@ -85,9 +85,7 @@ function App() {
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   
-  const [googleApiKey, setGoogleApiKey] = useState(() => localStorage.getItem('googleApiKey') || '');
-  const [searchEngineId, setSearchEngineId] = useState(() => localStorage.getItem('searchEngineId') || '');
-  const [rewardKeywords, setRewardKeywords] = useState(() => localStorage.getItem('rewardKeywords') || '');
+  const [rewardImageUrls, setRewardImageUrls] = useState(() => localStorage.getItem('rewardImageUrls') || '');
   const [rewardImage, setRewardImage] = useState<string | null>(() => localStorage.getItem('rewardImage') || null);
   const [isFetchingReward, setIsFetchingReward] = useState(false);
   const [rewardError, setRewardError] = useState<string | null>(null);
@@ -96,10 +94,8 @@ function App() {
   const prevIsAllTasksCompleted = useRef<boolean | null>(null);
 
   useEffect(() => {
-    localStorage.setItem('googleApiKey', googleApiKey);
-    localStorage.setItem('searchEngineId', searchEngineId);
-    localStorage.setItem('rewardKeywords', rewardKeywords);
-  }, [googleApiKey, searchEngineId, rewardKeywords]);
+    localStorage.setItem('rewardImageUrls', rewardImageUrls);
+  }, [rewardImageUrls]);
   useEffect(() => {
     if (isSignatureModalOpen && signaturePadRef.current) {
       const timer = setTimeout(() => {
@@ -168,38 +164,30 @@ function App() {
   }, [isAllTasksCompleted]);
 
   const fetchRewardImage = async () => {
-    if (!googleApiKey || !searchEngineId || !rewardKeywords) {
-      setRewardError('⚙️ Reward Settings に APIキー・キーワードを設定してください。');
+    if (!rewardImageUrls) {
+      setRewardError('⚙️ Reward Settings に ご褒美画像のURLを設定してください。');
       return;
     }
     
     setIsFetchingReward(true);
     setRewardError(null);
     try {
-      const key = googleApiKey.trim();
-      const cx = searchEngineId.trim();
-      const keywordsArray = rewardKeywords.split(',').map(k => k.trim()).filter(k => k);
-      if (keywordsArray.length === 0) return;
-      
-      const randomKeyword = keywordsArray[Math.floor(Math.random() * keywordsArray.length)];
-      const startIndex = Math.floor(Math.random() * 10) + 1;
-      
-      const url = `https://www.googleapis.com/customsearch/v1?key=${key}&cx=${cx}&q=${encodeURIComponent(randomKeyword)}&searchType=image&num=10&start=${startIndex}`;
-      console.log('Fetching reward:', url);
-      const response = await fetch(url);
-      
-      const data = await response.json();
-      if (data.error) {
-        setRewardError(`API Error: ${data.error.message}`);
-      } else if (data.items && data.items.length > 0) {
-        const randomItem = data.items[Math.floor(Math.random() * data.items.length)];
-        setRewardImage(randomItem.link);
-      } else {
-        setRewardError('画像が見つかりませんでした。キーワードを変えてみてください。');
+      const urlsArray = rewardImageUrls.split('\n').map(u => u.trim()).filter(u => u);
+      if (urlsArray.length === 0) {
+        setRewardError('有効なURLが設定されていません。');
+        setIsFetchingReward(false);
+        return;
       }
+      
+      const randomUrl = urlsArray[Math.floor(Math.random() * urlsArray.length)];
+      
+      // 念のため少しだけ「取得中」っぽく見せるためのディレイ
+      await new Promise(resolve => setTimeout(resolve, 600));
+      
+      setRewardImage(randomUrl);
     } catch (error) {
-      console.error("Failed to fetch reward image", error);
-      setRewardError('ネットワークエラーが発生しました。');
+      console.error("Failed to set reward image", error);
+      setRewardError('エラーが発生しました。');
     } finally {
       setIsFetchingReward(false);
     }
@@ -208,20 +196,9 @@ function App() {
   const toggleMode = () => setIsEditMode(!isEditMode);
 
   const handleDragEnd = (result: DropResult) => {
-    const { source, destination, type } = result;
+    const { source, destination } = result;
     if (!destination) return;
 
-    // カテゴリ自体の並び替え
-    if (type === 'CATEGORY') {
-      if (source.index === destination.index) return;
-      const newCategories = Array.from(categories);
-      const [moved] = newCategories.splice(source.index, 1);
-      newCategories.splice(destination.index, 0, moved);
-      setCategories(newCategories);
-      return;
-    }
-
-    // タスクの並び替え（同一カテゴリ内）
     if (source.droppableId === destination.droppableId) {
       const categoryIndex = categories.findIndex(c => c.id === source.droppableId);
       const category = categories[categoryIndex];
@@ -402,8 +379,6 @@ function App() {
     setCategories([...categories, { id: newId, name: "New Category", items: [] }]);
   };
 
-
-
   const getTodayDate = () => {
     const today = new Date();
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -445,33 +420,15 @@ function App() {
       <hr className="header-divider" />
 
       <DragDropContext onDragEnd={handleDragEnd}>
-        <Droppable droppableId="categories" type="CATEGORY" isDropDisabled={!isEditMode}>
-          {(catProvided) => (
-            <div ref={catProvided.innerRef} {...catProvided.droppableProps}>
-              {categories.map((category, categoryIndex) => (
-                <Draggable
-                  key={category.id}
-                  draggableId={`cat-drag-${category.id}`}
-                  index={categoryIndex}
-                  isDragDisabled={!isEditMode}
-                >
-                  {(catDrag, catSnapshot) => (
-                  <div
-                    ref={catDrag.innerRef}
-                    {...catDrag.draggableProps}
-                    className={`table-container category-table${catSnapshot.isDragging ? ' is-cat-dragging' : ''}`}
-                  >
+        {categories.map((category) => (
+          <div key={category.id} className="table-container category-table">
             <div className="table-header category-header-single">
               {isEditMode ? (
                 <div className="category-edit-wrapper">
-                  <div className="category-drag-handle" {...catDrag.dragHandleProps} title="Drag to reorder">
-                    ⠿
-                  </div>
                   <input
                     className="category-input"
                     value={category.name}
                     onChange={(e) => handleCategoryNameChange(category.id, e.target.value)}
-                    onFocus={(e) => e.target.select()}
                     placeholder="Category Name"
                   />
                   <button 
@@ -588,13 +545,7 @@ function App() {
               </div>
             )}
           </div>
-                  )}
-                </Draggable>
-              ))}
-              {catProvided.placeholder}
-            </div>
-          )}
-        </Droppable>
+        ))}
       </DragDropContext>
 
       {isEditMode && (
@@ -658,7 +609,7 @@ function App() {
                   if (dataURL) {
                     setSignature(dataURL);
                     setIsSignatureModalOpen(false);
-                    if (!rewardImage && googleApiKey && searchEngineId && rewardKeywords) {
+                    if (!rewardImage && rewardImageUrls) {
                       fetchRewardImage();
                     }
                   }
@@ -675,50 +626,19 @@ function App() {
         <div className="modal-overlay" onClick={() => setIsSettingsModalOpen(false)}>
           <div className="modal-content settings-modal" onClick={e => e.stopPropagation()}>
             <h3 className="modal-title">Reward Settings</h3>
-            <p className="settings-desc">Google Custom Search APIを設定し、推しのご褒美画像をランダムに表示します。</p>
+            <p className="settings-desc">ご褒美画像のURL（ウェブ上の画像リンク）を1行ずつ貼り付けてください。サイン完了時にランダムで1枚表示されます。</p>
             
             <div className="settings-field">
-              <label>API Key</label>
-              <input type="text" value={googleApiKey} onChange={e => setGoogleApiKey(e.target.value)} placeholder="AIzaSy..." />
+              <label>Image URLs</label>
+              <textarea 
+                value={rewardImageUrls} 
+                onChange={e => setRewardImageUrls(e.target.value)} 
+                placeholder="https://example.com/image1.jpg&#10;https://example.com/image2.png" 
+                rows={10}
+              />
             </div>
             
-            <div className="settings-field">
-              <label>Search Engine ID (cx)</label>
-              <input type="text" value={searchEngineId} onChange={e => setSearchEngineId(e.target.value)} placeholder="e.g. 12345abcdef" />
-            </div>
-            
-            <div className="settings-field">
-              <label>Keywords (カンマ区切り)</label>
-              <input type="text" value={rewardKeywords} onChange={e => setRewardKeywords(e.target.value)} placeholder="例: 乃木坂46, 犬, ハワイ" />
-            </div>
-            
-            <button 
-              className="clear-btn" 
-              style={{marginTop: '1rem', width: '100%'}} 
-              onClick={async () => {
-                const key = googleApiKey.trim();
-                const cx = searchEngineId.trim();
-                if (!key || !cx) {
-                  alert('API KeyとSearch Engine IDを入力してください。');
-                  return;
-                }
-                try {
-                  const res = await fetch(`https://www.googleapis.com/customsearch/v1?key=${key}&cx=${cx}&q=test&searchType=image&num=1`);
-                  const data = await res.json();
-                  if (data.error) {
-                    alert(`❌ Error: ${data.error.message}\n\nKey: ${key.slice(0,8)}...${key.slice(-4)}\nCX: ${cx}`);
-                  } else {
-                    alert('✅ API接続成功！画像検索は正常に動作します。');
-                  }
-                } catch (e) {
-                  alert(`❌ ネットワークエラー: ${e}`);
-                }
-              }}
-            >
-              🔍 Test API Connection
-            </button>
-            
-            <button className="done-btn" style={{marginTop: '0.5rem', width: '100%'}} onClick={() => setIsSettingsModalOpen(false)}>Save & Close</button>
+            <button className="done-btn" style={{marginTop: '1.5rem', width: '100%'}} onClick={() => setIsSettingsModalOpen(false)}>Save & Close</button>
           </div>
         </div>
       )}
