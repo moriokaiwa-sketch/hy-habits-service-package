@@ -196,8 +196,16 @@ function App() {
   const toggleMode = () => setIsEditMode(!isEditMode);
 
   const handleDragEnd = (result: DropResult) => {
-    const { source, destination } = result;
+    const { source, destination, type } = result;
     if (!destination) return;
+
+    if (type === 'category') {
+      const newCategories = Array.from(categories);
+      const [reorderedCategory] = newCategories.splice(source.index, 1);
+      newCategories.splice(destination.index, 0, reorderedCategory);
+      setCategories(newCategories);
+      return;
+    }
 
     if (source.droppableId === destination.droppableId) {
       const categoryIndex = categories.findIndex(c => c.id === source.droppableId);
@@ -420,31 +428,46 @@ function App() {
       <hr className="header-divider" />
 
       <DragDropContext onDragEnd={handleDragEnd}>
-        {categories.map((category) => (
-          <div key={category.id} className="table-container category-table">
-            <div className="table-header category-header-single">
-              {isEditMode ? (
-                <div className="category-edit-wrapper">
-                  <input
-                    className="category-input"
-                    value={category.name}
-                    onChange={(e) => handleCategoryNameChange(category.id, e.target.value)}
-                    placeholder="Category Name"
-                  />
-                  <button 
-                    className="delete-category-btn"
-                    onClick={() => deleteCategory(category.id)}
-                    title="Delete category"
-                  >
-                    🗑️
-                  </button>
-                </div>
-              ) : (
-                category.name
-              )}
-            </div>
+        <Droppable droppableId="board" type="category" isDropDisabled={!isEditMode}>
+          {(provided) => (
+            <div ref={provided.innerRef} {...provided.droppableProps}>
+              {categories.map((category, index) => (
+                <Draggable key={category.id} draggableId={category.id} index={index} isDragDisabled={!isEditMode}>
+                  {(provided, snapshot) => (
+                    <div 
+                      ref={provided.innerRef} 
+                      {...provided.draggableProps} 
+                      className={`table-container category-table ${snapshot.isDragging ? 'category-is-dragging' : ''}`}
+                    >
+                      <div className="table-header category-header-single">
+                        {isEditMode ? (
+                          <div className="category-edit-wrapper">
+                            <div 
+                              className="drag-handle category-drag-handle" 
+                              {...provided.dragHandleProps}
+                            >
+                              ☰
+                            </div>
+                            <input
+                              className="category-input"
+                              value={category.name}
+                              onChange={(e) => handleCategoryNameChange(category.id, e.target.value)}
+                              placeholder="Category Name"
+                            />
+                            <button 
+                              className="delete-category-btn"
+                              onClick={() => deleteCategory(category.id)}
+                              title="Delete category"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        ) : (
+                          category.name
+                        )}
+                      </div>
 
-            <Droppable droppableId={category.id} isDropDisabled={!isEditMode}>
+                      <Droppable droppableId={category.id} type="task" isDropDisabled={!isEditMode}>
               {(provided) => (
                 <div 
                   {...provided.droppableProps} 
@@ -537,15 +560,21 @@ function App() {
               )}
             </Droppable>
             
-            {isEditMode && (
-              <div className="add-row">
-                <button className="add-btn" onClick={() => addHabit(category.id)}>
-                  ＋ Add Action Item
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
+                    {isEditMode && (
+                      <div className="add-row">
+                        <button className="add-btn" onClick={() => addHabit(category.id)}>
+                          ＋ Add Action Item
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </Draggable>
+            ))}
+            {provided.placeholder}
+            </div>
+          )}
+        </Droppable>
       </DragDropContext>
 
       {isEditMode && (

@@ -214,6 +214,26 @@ input:checked + .slider:before {
   box-sizing: border-box;
 }
 
+.category-is-dragging {
+  box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+  transform: scale(1.02);
+  z-index: 10;
+}
+
+.category-drag-handle {
+  cursor: grab;
+  color: var(--text-color);
+  opacity: 0.5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-right: 0.5rem;
+}
+
+.category-drag-handle:active {
+  cursor: grabbing;
+}
+
 .category-edit-wrapper {
   display: flex;
   align-items: center;
