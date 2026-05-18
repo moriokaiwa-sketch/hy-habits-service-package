@@ -384,7 +384,7 @@ function App() {
 
   const addCategory = () => {
     const newId = `cat-${Date.now()}`;
-    setCategories([...categories, { id: newId, name: "New Category", items: [] }]);
+    setCategories([...categories, { id: newId, name: "", items: [] }]);
   };
 
   const getTodayDate = () => {
@@ -453,6 +453,7 @@ function App() {
                               value={category.name}
                               onChange={(e) => handleCategoryNameChange(category.id, e.target.value)}
                               placeholder="Category Name"
+                              autoFocus={category.name === ""}
                             />
                             <button 
                               className="delete-category-btn"
@@ -503,6 +504,7 @@ function App() {
                                 value={habit.task}
                                 onChange={(e) => handleTaskChange(category.id, habit.id, e.target.value)}
                                 placeholder="New Task"
+                                autoFocus={habit.task === ""}
                               />
                             ) : (
                               <span>{habit.task}</span>
