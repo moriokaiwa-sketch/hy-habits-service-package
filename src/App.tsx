@@ -467,6 +467,39 @@ function App() {
     setCategories([...categories, { id: newId, name: "", items: [] }]);
   };
 
+  const tabPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleTabTouchStart = (dateStr: string) => {
+    tabPressTimer.current = setTimeout(() => {
+      if (window.confirm(`${formatDateLabel(dateStr)} のカードを削除しますか？`)) {
+        setCards(prev => {
+          const newCards = { ...prev };
+          delete newCards[dateStr];
+          
+          if (activeDate === dateStr) {
+             const remainingDates = Object.keys(newCards).sort();
+             if (remainingDates.length > 0) {
+               const today = getTodayDate();
+               setActiveDate(newCards[today] ? today : remainingDates[0]);
+             } else {
+               const today = getTodayDate();
+               newCards[today] = { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null };
+               setActiveDate(today);
+             }
+          }
+          return newCards;
+        });
+      }
+    }, 800);
+  };
+
+  const handleTabTouchEnd = () => {
+    if (tabPressTimer.current) {
+      clearTimeout(tabPressTimer.current);
+      tabPressTimer.current = null;
+    }
+  };
+
 
 
   return (
@@ -478,6 +511,18 @@ function App() {
               key={dateStr}
               className={`date-tab ${dateStr === activeDate ? 'active' : ''}`}
               onClick={() => setActiveDate(dateStr)}
+              onTouchStart={() => handleTabTouchStart(dateStr)}
+              onTouchEnd={handleTabTouchEnd}
+              onTouchMove={handleTabTouchEnd}
+              onMouseDown={() => handleTabTouchStart(dateStr)}
+              onMouseUp={handleTabTouchEnd}
+              onMouseLeave={handleTabTouchEnd}
+              onContextMenu={e => {
+                e.preventDefault();
+                handleTabTouchStart(dateStr);
+              }}
+              style={{ userSelect: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
+              title="長押しまたは右クリックでカードを削除"
             >
               {formatDateLabel(dateStr)}
             </button>
