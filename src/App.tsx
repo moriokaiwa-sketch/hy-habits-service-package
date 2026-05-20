@@ -33,15 +33,22 @@ const SHIFTS = ["日勤", "遅番", "夜勤", "夜勤明け", "休日"];
 function App() {
   const [isEditMode, setIsEditMode] = useState(false);
   
-  const getTodayDate = () => {
-    const today = new Date();
-    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const getDateString = (offsetDays: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + offsetDays);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   };
 
-  const getTomorrowDate = () => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+  const getTodayDate = () => getDateString(0);
+
+  const formatDateLabel = (dateStr: string) => {
+    if (dateStr === getDateString(0)) return '今日';
+    if (dateStr === getDateString(1)) return '明日';
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      return `${parseInt(parts[1])}/${parseInt(parts[2])}`;
+    }
+    return dateStr;
   };
 
   const [templates, setTemplates] = useState<Record<string, Category[]>>(() => {
@@ -472,7 +479,7 @@ function App() {
               className={`date-tab ${dateStr === activeDate ? 'active' : ''}`}
               onClick={() => setActiveDate(dateStr)}
             >
-              {dateStr === getTodayDate() ? '今日' : dateStr === getTomorrowDate() ? '明日' : dateStr}
+              {formatDateLabel(dateStr)}
             </button>
           ))}
         </div>
@@ -776,21 +783,20 @@ function App() {
             <h3 className="modal-title">新しいCARDを発行</h3>
             <p className="modal-subtitle">日付とシフトを選択してください</p>
             
-            <div className="date-selector" style={{display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'center'}}>
-              <button 
-                className={`shift-btn ${selectedIssueDate === getTodayDate() ? 'active' : ''}`}
-                onClick={() => setSelectedIssueDate(getTodayDate())}
-                style={{flex: 1}}
-              >
-                今日
-              </button>
-              <button 
-                className={`shift-btn ${selectedIssueDate === getTomorrowDate() ? 'active' : ''}`}
-                onClick={() => setSelectedIssueDate(getTomorrowDate())}
-                style={{flex: 1}}
-              >
-                明日
-              </button>
+            <div className="date-selector" style={{display: 'flex', gap: '5px', marginBottom: '20px', justifyContent: 'center'}}>
+              {[0, 1, 2, 3, 4].map(offset => {
+                const dStr = getDateString(offset);
+                return (
+                  <button 
+                    key={offset}
+                    className={`shift-btn ${selectedIssueDate === dStr ? 'active' : ''}`}
+                    onClick={() => setSelectedIssueDate(dStr)}
+                    style={{flex: 1, padding: '0.5rem 0', fontSize: '0.85rem'}}
+                  >
+                    {formatDateLabel(dStr)}
+                  </button>
+                );
+              })}
             </div>
 
             <div className="shift-buttons">
