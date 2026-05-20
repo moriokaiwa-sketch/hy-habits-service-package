@@ -6,6 +6,7 @@ import './App.css';
 interface Habit {
   id: string;
   task: string;
+  description?: string;
   isDone: boolean;
   isSkipped?: boolean;
   time?: string;
@@ -308,6 +309,18 @@ function App() {
     }));
   };
 
+  const handleDescriptionChange = (categoryId: string, taskId: string, newDescription: string) => {
+    setCategories(categories.map(c => {
+      if (c.id === categoryId) {
+        return {
+          ...c,
+          items: c.items.map(t => t.id === taskId ? { ...t, description: newDescription } : t)
+        };
+      }
+      return c;
+    }));
+  };
+
   const handleTimeChange = (categoryId: string, taskId: string, newTime: string) => {
     setCategories(categories.map(c => {
       if (c.id === categoryId) {
@@ -446,7 +459,7 @@ function App() {
     const newId = `task-${Date.now()}`;
     setCategories(categories.map(c => {
       if (c.id === categoryId) {
-        return { ...c, items: [...c.items, { id: newId, task: "", isDone: false }] };
+        return { ...c, items: [...c.items, { id: newId, task: "", description: "", isDone: false }] };
       }
       return c;
     }));
@@ -633,17 +646,30 @@ function App() {
                               </div>
                             )}
                             
-                            {isEditMode ? (
-                              <input
-                                className="task-input"
-                                value={habit.task}
-                                onChange={(e) => handleTaskChange(category.id, habit.id, e.target.value)}
-                                placeholder="New Task"
-                                autoFocus={habit.task === ""}
-                              />
-                            ) : (
-                              <span>{habit.task}</span>
-                            )}
+                            <div className="task-content">
+                              {isEditMode ? (
+                                <>
+                                  <input
+                                    className="task-input"
+                                    value={habit.task}
+                                    onChange={(e) => handleTaskChange(category.id, habit.id, e.target.value)}
+                                    placeholder="Action Item Name"
+                                    autoFocus={habit.task === ""}
+                                  />
+                                  <input
+                                    className="description-input"
+                                    value={habit.description || ""}
+                                    onChange={(e) => handleDescriptionChange(category.id, habit.id, e.target.value)}
+                                    placeholder="Description (Optional)"
+                                  />
+                                </>
+                              ) : (
+                                <>
+                                  <span className="task-name-display">{habit.task}</span>
+                                  {habit.description && <span className="task-desc-display">{habit.description}</span>}
+                                </>
+                              )}
+                            </div>
                           </div>
 
                           <div className="time-cell">

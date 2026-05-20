@@ -378,8 +378,15 @@ input:checked + .slider:before {
   cursor: grabbing;
 }
 
-.task-input {
+.task-content {
+  display: flex;
+  flex-direction: column;
   flex: 1;
+  gap: 0.25rem;
+  justify-content: center;
+}
+
+.task-input {
   border: 1px dashed var(--border-color);
   background: transparent;
   padding: 0.25rem 0.5rem;
@@ -391,6 +398,32 @@ input:checked + .slider:before {
   border-style: solid;
   border-color: var(--text-color);
   background-color: var(--highlight-color);
+}
+
+.description-input {
+  border: 1px dashed var(--border-color);
+  background: transparent;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.85rem;
+  outline: none;
+  font-family: inherit;
+  color: #666;
+}
+
+.description-input:focus {
+  border-style: solid;
+  border-color: var(--text-color);
+  background-color: var(--highlight-color);
+}
+
+.task-name-display {
+  font-size: 1rem;
+}
+
+.task-desc-display {
+  font-size: 0.8rem;
+  color: #666;
+  margin-top: -2px;
 }
 
 /* Done cell */
