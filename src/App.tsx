@@ -33,10 +33,16 @@ const SHIFTS = ["日勤", "遅番", "夜勤", "夜勤明け", "休日"];
 function App() {
   const [isEditMode, setIsEditMode] = useState(false);
   
-  const [currentShift, setCurrentShift] = useState<string>(() => {
-    const saved = localStorage.getItem('currentShift');
-    return saved ? saved : "日勤";
-  });
+  const getTodayDate = () => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  };
+
+  const getTomorrowDate = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+  };
 
   const [templates, setTemplates] = useState<Record<string, Category[]>>(() => {
     const savedTemplates = localStorage.getItem('templates');
@@ -64,29 +70,100 @@ function App() {
     return initialTemplates;
   });
 
-  const [categories, setCategories] = useState<Category[]>(() => {
-    const savedCategories = localStorage.getItem('categories');
-    if (savedCategories) {
+  const [cards, setCards] = useState<Record<string, any>>(() => {
+    const saved = localStorage.getItem('cards');
+    if (saved) {
       try {
-        return JSON.parse(savedCategories);
+        return JSON.parse(saved);
       } catch (e) {
-        return defaultCategories;
+        // ignore
       }
     }
-    return defaultCategories;
+    
+    // Migration from old flat state
+    const today = getTodayDate();
+    const c = localStorage.getItem('categories');
+    const categoriesData = c ? JSON.parse(c) : defaultCategories;
+    const shiftData = localStorage.getItem('currentShift') || '日勤';
+    const sigData = localStorage.getItem('signature') || null;
+    const rwData = localStorage.getItem('rewardImage') || null;
+    
+    return {
+      [today]: {
+        categories: categoriesData,
+        currentShift: shiftData,
+        signature: sigData,
+        rewardImage: rwData
+      }
+    };
   });
 
-  const [signature, setSignature] = useState<string | null>(() => {
-    const saved = localStorage.getItem('signature');
-    return saved ? saved : null;
-  });
+  const [activeDate, setActiveDate] = useState<string>(getTodayDate());
+  const [selectedIssueDate, setSelectedIssueDate] = useState<string>(getTodayDate());
+
+  // Clean up old cards on load
+  useEffect(() => {
+    const today = getTodayDate();
+    setCards(prev => {
+      let changed = false;
+      const newCards = { ...prev };
+      Object.keys(newCards).forEach(date => {
+        if (date < today) {
+          delete newCards[date];
+          changed = true;
+        }
+      });
+      return changed ? newCards : prev;
+    });
+  }, []);
+
+  // Sync to localStorage
+  useEffect(() => {
+    localStorage.setItem('cards', JSON.stringify(cards));
+  }, [cards]);
+
+  // Derived state for the active tab
+  const activeCard = cards[activeDate] || {
+    categories: defaultCategories,
+    currentShift: '日勤',
+    signature: null,
+    rewardImage: null
+  };
+
+  const categories: Category[] = activeCard.categories;
+  const currentShift: string = activeCard.currentShift;
+  const signature: string | null = activeCard.signature;
+  const rewardImage: string | null = activeCard.rewardImage;
+
+  const setCategories = (newCats: any) => {
+    setCards(prev => {
+      const card = prev[activeDate] || { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null };
+      const resolved = typeof newCats === 'function' ? newCats(card.categories) : newCats;
+      return { ...prev, [activeDate]: { ...card, categories: resolved } };
+    });
+  };
+
+
+
+  const setSignature = (sig: string | null) => {
+    setCards(prev => {
+      const card = prev[activeDate] || { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null };
+      return { ...prev, [activeDate]: { ...card, signature: sig } };
+    });
+  };
+
+  const setRewardImage = (img: string | null) => {
+    setCards(prev => {
+      const card = prev[activeDate] || { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null };
+      return { ...prev, [activeDate]: { ...card, rewardImage: img } };
+    });
+  };
 
   const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   
   const [rewardImageUrls, setRewardImageUrls] = useState(() => localStorage.getItem('rewardImageUrls') || '');
-  const [rewardImage, setRewardImage] = useState<string | null>(() => localStorage.getItem('rewardImage') || null);
   const [isFetchingReward, setIsFetchingReward] = useState(false);
   const [rewardError, setRewardError] = useState<string | null>(null);
   
@@ -113,16 +190,10 @@ function App() {
   }, [isSignatureModalOpen]);
 
   useEffect(() => {
-    localStorage.setItem('currentShift', currentShift);
-  }, [currentShift]);
-
-  useEffect(() => {
     localStorage.setItem('templates', JSON.stringify(templates));
   }, [templates]);
 
   useEffect(() => {
-    localStorage.setItem('categories', JSON.stringify(categories));
-    
     // Auto-save to template when editing
     if (isEditMode) {
       const cleanCategories = categories.map(c => ({
@@ -132,22 +203,6 @@ function App() {
       setTemplates(prev => ({ ...prev, [currentShift]: cleanCategories }));
     }
   }, [categories, isEditMode, currentShift]);
-
-  useEffect(() => {
-    if (signature) {
-      localStorage.setItem('signature', signature);
-    } else {
-      localStorage.removeItem('signature');
-    }
-  }, [signature]);
-
-  useEffect(() => {
-    if (rewardImage) {
-      localStorage.setItem('rewardImage', rewardImage);
-    } else {
-      localStorage.removeItem('rewardImage');
-    }
-  }, [rewardImage]);
 
   const totalTasks = categories.reduce((sum, cat) => sum + cat.items.length, 0);
   const completedOrSkippedTasks = categories.reduce((sum, cat) => sum + cat.items.filter(t => t.isDone || t.isSkipped).length, 0);
@@ -341,15 +396,33 @@ function App() {
 
   const loadShiftTemplate = (shift: string) => {
     const template = templates[shift] || [];
-    const newCategories = template.map(c => ({
+    const cleanCategories = template.map(c => ({
       ...c,
       items: c.items.map(t => ({ ...t, isDone: false, isSkipped: false }))
     }));
+
+    setCards(prev => {
+      const newCards = { ...prev };
+      
+      // Clean up old cards
+      const today = getTodayDate();
+      Object.keys(newCards).forEach(date => {
+        if (date < today) {
+          delete newCards[date];
+        }
+      });
+      
+      newCards[selectedIssueDate] = {
+        categories: cleanCategories,
+        currentShift: shift,
+        signature: null,
+        rewardImage: null
+      };
+      
+      return newCards;
+    });
     
-    setCategories(newCategories);
-    setCurrentShift(shift);
-    setSignature(null);
-    setRewardImage(null);
+    setActiveDate(selectedIssueDate);
     setIsShiftModalOpen(false);
   };
 
@@ -387,13 +460,23 @@ function App() {
     setCategories([...categories, { id: newId, name: "", items: [] }]);
   };
 
-  const getTodayDate = () => {
-    const today = new Date();
-    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-  };
+
 
   return (
     <div className={`app-container ${isEditMode ? 'edit-mode' : 'execution-mode'}`}>
+      {Object.keys(cards).length > 1 && (
+        <div className="date-tabs">
+          {Object.keys(cards).sort().map(dateStr => (
+            <button 
+              key={dateStr}
+              className={`date-tab ${dateStr === activeDate ? 'active' : ''}`}
+              onClick={() => setActiveDate(dateStr)}
+            >
+              {dateStr === getTodayDate() ? '今日' : dateStr === getTomorrowDate() ? '明日' : dateStr}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="header-top">
         <div className="title-area">
           <div className="document-title">
@@ -413,7 +496,7 @@ function App() {
             </div>
           </div>
           <div className="issue-date">
-            Issue date: {getTodayDate()} <span className="shift-badge">[{currentShift}]</span>
+            Issue date: {activeDate} <span className="shift-badge">[{currentShift}]</span>
           </div>
         </div>
         <div className="mode-toggle">
@@ -691,12 +774,30 @@ function App() {
         <div className="modal-overlay" onClick={() => setIsShiftModalOpen(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <h3 className="modal-title">新しいCARDを発行</h3>
-            <p className="modal-subtitle">シフトを選択してください</p>
+            <p className="modal-subtitle">日付とシフトを選択してください</p>
+            
+            <div className="date-selector" style={{display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'center'}}>
+              <button 
+                className={`shift-btn ${selectedIssueDate === getTodayDate() ? 'active' : ''}`}
+                onClick={() => setSelectedIssueDate(getTodayDate())}
+                style={{flex: 1}}
+              >
+                今日
+              </button>
+              <button 
+                className={`shift-btn ${selectedIssueDate === getTomorrowDate() ? 'active' : ''}`}
+                onClick={() => setSelectedIssueDate(getTomorrowDate())}
+                style={{flex: 1}}
+              >
+                明日
+              </button>
+            </div>
+
             <div className="shift-buttons">
               {SHIFTS.map(shift => (
                 <button 
                   key={shift} 
-                  className={`shift-btn ${shift === currentShift ? 'active' : ''}`}
+                  className={`shift-btn`}
                   onClick={() => loadShiftTemplate(shift)}
                 >
                   {shift}
