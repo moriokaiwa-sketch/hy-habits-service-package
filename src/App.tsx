@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import SignatureCanvas from 'react-signature-canvas';
+import { db } from './firebase';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import './App.css';
 
 interface Habit {
@@ -109,6 +111,8 @@ function App() {
   const [activeDate, setActiveDate] = useState<string>(getTodayDate());
   const [selectedIssueDate, setSelectedIssueDate] = useState<string>(getTodayDate());
 
+  const lastSyncStr = useRef({ cards: '', templates: '', rewardImageUrls: '' });
+
   // Clean up old cards on load
   useEffect(() => {
     const today = getTodayDate();
@@ -125,9 +129,39 @@ function App() {
     });
   }, []);
 
-  // Sync to localStorage
+  // Sync from Firestore
   useEffect(() => {
-    localStorage.setItem('cards', JSON.stringify(cards));
+    if (!db) return;
+    const docRef = doc(db, 'appData', 'sharedState');
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists() && !docSnap.metadata.hasPendingWrites) {
+        const data = docSnap.data();
+        if (data.cards) {
+          lastSyncStr.current.cards = JSON.stringify(data.cards);
+          setCards(data.cards);
+        }
+        if (data.templates) {
+          lastSyncStr.current.templates = JSON.stringify(data.templates);
+          setTemplates(data.templates);
+        }
+        if (data.rewardImageUrls !== undefined) {
+          lastSyncStr.current.rewardImageUrls = data.rewardImageUrls;
+          setRewardImageUrls(data.rewardImageUrls);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Sync to localStorage and Firestore
+  useEffect(() => {
+    const currentStr = JSON.stringify(cards);
+    localStorage.setItem('cards', currentStr);
+    
+    if (db && currentStr !== lastSyncStr.current.cards) {
+      lastSyncStr.current.cards = currentStr;
+      setDoc(doc(db, 'appData', 'sharedState'), { cards }, { merge: true }).catch(console.error);
+    }
   }, [cards]);
 
   // Derived state for the active tab
@@ -180,6 +214,11 @@ function App() {
 
   useEffect(() => {
     localStorage.setItem('rewardImageUrls', rewardImageUrls);
+    
+    if (db && rewardImageUrls !== lastSyncStr.current.rewardImageUrls) {
+      lastSyncStr.current.rewardImageUrls = rewardImageUrls;
+      setDoc(doc(db, 'appData', 'sharedState'), { rewardImageUrls }, { merge: true }).catch(console.error);
+    }
   }, [rewardImageUrls]);
   useEffect(() => {
     if (isSignatureModalOpen && signaturePadRef.current) {
@@ -198,7 +237,13 @@ function App() {
   }, [isSignatureModalOpen]);
 
   useEffect(() => {
-    localStorage.setItem('templates', JSON.stringify(templates));
+    const currentStr = JSON.stringify(templates);
+    localStorage.setItem('templates', currentStr);
+    
+    if (db && currentStr !== lastSyncStr.current.templates) {
+      lastSyncStr.current.templates = currentStr;
+      setDoc(doc(db, 'appData', 'sharedState'), { templates }, { merge: true }).catch(console.error);
+    }
   }, [templates]);
 
   useEffect(() => {
