@@ -112,6 +112,7 @@ function App() {
   const [selectedIssueDate, setSelectedIssueDate] = useState<string>(getTodayDate());
 
   const lastSyncStr = useRef({ cards: '', templates: '', rewardImageUrls: '' });
+  const [isFirebaseLoaded, setIsFirebaseLoaded] = useState(false);
 
   // Clean up old cards on load
   useEffect(() => {
@@ -131,7 +132,10 @@ function App() {
 
   // Sync from Firestore
   useEffect(() => {
-    if (!db) return;
+    if (!db) {
+      setIsFirebaseLoaded(true);
+      return;
+    }
     const docRef = doc(db, 'appData', 'sharedState');
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists() && !docSnap.metadata.hasPendingWrites) {
@@ -149,6 +153,7 @@ function App() {
           setRewardImageUrls(data.rewardImageUrls);
         }
       }
+      setIsFirebaseLoaded(true);
     });
     return () => unsubscribe();
   }, []);
@@ -158,11 +163,11 @@ function App() {
     const currentStr = JSON.stringify(cards);
     localStorage.setItem('cards', currentStr);
     
-    if (db && currentStr !== lastSyncStr.current.cards) {
+    if (isFirebaseLoaded && db && currentStr !== lastSyncStr.current.cards) {
       lastSyncStr.current.cards = currentStr;
       setDoc(doc(db, 'appData', 'sharedState'), { cards }, { merge: true }).catch(console.error);
     }
-  }, [cards]);
+  }, [cards, isFirebaseLoaded]);
 
   // Derived state for the active tab
   const activeCard = cards[activeDate] || {
@@ -215,11 +220,11 @@ function App() {
   useEffect(() => {
     localStorage.setItem('rewardImageUrls', rewardImageUrls);
     
-    if (db && rewardImageUrls !== lastSyncStr.current.rewardImageUrls) {
+    if (isFirebaseLoaded && db && rewardImageUrls !== lastSyncStr.current.rewardImageUrls) {
       lastSyncStr.current.rewardImageUrls = rewardImageUrls;
       setDoc(doc(db, 'appData', 'sharedState'), { rewardImageUrls }, { merge: true }).catch(console.error);
     }
-  }, [rewardImageUrls]);
+  }, [rewardImageUrls, isFirebaseLoaded]);
   useEffect(() => {
     if (isSignatureModalOpen && signaturePadRef.current) {
       const timer = setTimeout(() => {
@@ -240,11 +245,11 @@ function App() {
     const currentStr = JSON.stringify(templates);
     localStorage.setItem('templates', currentStr);
     
-    if (db && currentStr !== lastSyncStr.current.templates) {
+    if (isFirebaseLoaded && db && currentStr !== lastSyncStr.current.templates) {
       lastSyncStr.current.templates = currentStr;
       setDoc(doc(db, 'appData', 'sharedState'), { templates }, { merge: true }).catch(console.error);
     }
-  }, [templates]);
+  }, [templates, isFirebaseLoaded]);
 
   useEffect(() => {
     // Auto-save to template when editing
