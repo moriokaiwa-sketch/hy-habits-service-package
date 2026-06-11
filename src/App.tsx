@@ -154,6 +154,9 @@ function App() {
         }
       }
       setIsFirebaseLoaded(true);
+    }, (error) => {
+      console.error("Firebase sync error:", error);
+      setIsFirebaseLoaded(true);
     });
     return () => unsubscribe();
   }, []);
