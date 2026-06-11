@@ -5,6 +5,23 @@ import { db } from './firebase';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import './App.css';
 
+const StarIcon = ({ filled, onClick }: { filled: boolean, onClick: () => void }) => (
+  <svg 
+    onClick={onClick}
+    width="32" 
+    height="32" 
+    viewBox="0 0 24 24" 
+    fill={filled ? "#E2584D" : "none"}
+    stroke={filled ? "#E2584D" : "#333"} 
+    strokeWidth="1.5" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className="star-icon"
+  >
+    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+  </svg>
+);
+
 interface Habit {
   id: string;
   task: string;
@@ -177,13 +194,17 @@ function App() {
     categories: defaultCategories,
     currentShift: '日勤',
     signature: null,
-    rewardImage: null
+    rewardImage: null,
+    dayRating: 0,
+    signOffNote: ''
   };
 
   const categories: Category[] = activeCard.categories;
   const currentShift: string = activeCard.currentShift;
   const signature: string | null = activeCard.signature;
   const rewardImage: string | null = activeCard.rewardImage;
+  const dayRating: number = activeCard.dayRating || 0;
+  const signOffNote: string = activeCard.signOffNote || '';
 
   const setCategories = (newCats: any) => {
     setCards(prev => {
@@ -204,8 +225,22 @@ function App() {
 
   const setRewardImage = (img: string | null) => {
     setCards(prev => {
-      const card = prev[activeDate] || { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null };
+      const card = prev[activeDate] || { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
       return { ...prev, [activeDate]: { ...card, rewardImage: img } };
+    });
+  };
+
+  const setDayRating = (rating: number) => {
+    setCards(prev => {
+      const card = prev[activeDate] || { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
+      return { ...prev, [activeDate]: { ...card, dayRating: rating } };
+    });
+  };
+
+  const setSignOffNote = (note: string) => {
+    setCards(prev => {
+      const card = prev[activeDate] || { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
+      return { ...prev, [activeDate]: { ...card, signOffNote: note } };
     });
   };
 
@@ -800,6 +835,40 @@ function App() {
           </button>
         </div>
       )}
+
+      {/* SIGN-OFF NOTES Section */}
+      <div className="table-container sign-off-container">
+        <div className="category-header">
+          SIGN-OFF NOTES
+        </div>
+        <div className="sign-off-content">
+          <div className="rating-container">
+            {[1, 2, 3, 4, 5].map(star => (
+              <StarIcon 
+                key={star} 
+                filled={dayRating >= star} 
+                onClick={() => setDayRating(star)} 
+              />
+            ))}
+          </div>
+          <textarea
+            className="sign-off-textarea"
+            placeholder="・最高だった瞬間は？&#10;・感謝したいことは？&#10;・明日の決意は？"
+            value={signOffNote}
+            onChange={(e) => {
+              setSignOffNote(e.target.value);
+              e.target.style.height = 'auto';
+              e.target.style.height = `${e.target.scrollHeight}px`;
+            }}
+            ref={(el) => {
+              if (el) {
+                el.style.height = 'auto';
+                el.style.height = `${el.scrollHeight}px`;
+              }
+            }}
+          />
+        </div>
+      </div>
 
       <div className="table-container complete-check-container">
         <div className="habit-row complete-check-row">

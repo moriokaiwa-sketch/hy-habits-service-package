@@ -882,3 +882,58 @@ input:checked + .slider:before {
   /* slight shadow to make it look like real ink */
   filter: drop-shadow(0px 0px 1px rgba(0,0,0,0.3));
 }
+
+/* SIGN-OFF NOTES Section */
+.sign-off-container {
+  margin-bottom: 2rem;
+}
+
+.sign-off-content {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--task-bg);
+  border: 2px solid var(--text-color);
+  border-top: none;
+  padding: 1rem;
+  gap: 1rem;
+}
+
+.rating-container {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.star-icon {
+  cursor: pointer;
+  margin-right: 8px;
+  transition: all 0.2s ease-in-out;
+}
+
+.star-icon:hover {
+  transform: scale(1.1);
+}
+
+.sign-off-textarea {
+  width: 100%;
+  min-height: 100px;
+  background-color: transparent;
+  border: 1px solid var(--text-color);
+  font-family: inherit;
+  font-size: 1rem;
+  color: var(--text-color);
+  padding: 0.75rem;
+  box-sizing: border-box;
+  resize: none;
+  overflow: hidden;
+  line-height: 1.5;
+}
+
+.sign-off-textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+}
+
+.sign-off-textarea::placeholder {
+  color: rgba(0, 0, 0, 0.4);
+}
