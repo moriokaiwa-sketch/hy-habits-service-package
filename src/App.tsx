@@ -838,7 +838,7 @@ function App() {
 
       {/* SIGN-OFF NOTES Section */}
       <div className="table-container sign-off-container">
-        <div className="category-header">
+        <div className="table-header category-header-single">
           SIGN-OFF NOTES
         </div>
         <div className="sign-off-content">
