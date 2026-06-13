@@ -975,7 +975,7 @@ input:checked + .slider:before {
 
 .category-time-counter {
   border-left: 2px solid var(--text-color);
-  background-color: #fff;
+  background-color: transparent;
   padding: 0 1rem;
   display: flex;
   align-items: center;
