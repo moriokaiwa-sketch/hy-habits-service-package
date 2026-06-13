@@ -875,7 +875,7 @@ function App() {
       {/* SIGN-OFF NOTES Section */}
       <div className="table-container sign-off-container">
         <div className="table-header category-header-single">
-          SIGN-OFF NOTES
+          <span style={{ padding: '0.75rem 1rem' }}>SIGN-OFF NOTES</span>
         </div>
         <div className="sign-off-content">
           <div className="rating-container">
@@ -888,40 +888,7 @@ function App() {
                 />
               ))}
             </div>
-            <button 
-              className="copy-memo-btn" 
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(signOffNote);
-                  // Optional: add a small visual feedback if needed
-                } catch (err) {
-                  console.error('Failed to copy text: ', err);
-                }
-              }}
-              title="Copy Memo"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-              </svg>
-            </button>
           </div>
-          <textarea
-            className="sign-off-textarea"
-            placeholder="MEMO"
-            value={signOffNote}
-            onChange={(e) => {
-              setSignOffNote(e.target.value);
-              e.target.style.height = 'auto';
-              e.target.style.height = `${e.target.scrollHeight}px`;
-            }}
-            ref={(el) => {
-              if (el) {
-                el.style.height = 'auto';
-                el.style.height = `${el.scrollHeight}px`;
-              }
-            }}
-          />
         </div>
       </div>
 
@@ -947,6 +914,49 @@ function App() {
               <span style={{ opacity: 0.5, fontSize: '1.2rem' }} title="System fixed item">🔒</span>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* MEMO Section */}
+      <div className="table-container memo-container" style={{ marginTop: '2rem' }}>
+        <div className="table-header category-header-single" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ padding: '0.75rem 1rem' }}>MEMO</span>
+          <button 
+            className="copy-memo-btn" 
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(signOffNote);
+              } catch (err) {
+                console.error('Failed to copy text: ', err);
+              }
+            }}
+            title="Copy Memo"
+            style={{ marginRight: '1rem', padding: '4px 8px' }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+          </button>
+        </div>
+        <div className="memo-content" style={{ display: 'flex', flexDirection: 'column', backgroundColor: '#fff', padding: '1rem' }}>
+          <textarea
+            className="sign-off-textarea"
+            placeholder=""
+            value={signOffNote}
+            onChange={(e) => {
+              setSignOffNote(e.target.value);
+              e.target.style.height = 'auto';
+              e.target.style.height = `${e.target.scrollHeight}px`;
+            }}
+            ref={(el) => {
+              if (el) {
+                el.style.height = 'auto';
+                el.style.height = `${el.scrollHeight}px`;
+              }
+            }}
+            style={{ border: 'none', padding: 0, minHeight: '150px' }}
+          />
         </div>
       </div>
 
