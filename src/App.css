@@ -891,7 +891,7 @@ input:checked + .slider:before {
 .sign-off-content {
   display: flex;
   flex-direction: column;
-  background-color: #fff;
+  background-color: var(--task-bg);
   border: 2px solid var(--text-color);
   border-top: none;
   padding: 1rem;
@@ -907,6 +907,9 @@ input:checked + .slider:before {
 .stars-wrapper {
   display: flex;
   align-items: center;
+  background-color: #fff;
+  border: 1px solid var(--text-color);
+  padding: 0.5rem;
 }
 
 .copy-memo-btn {
@@ -944,7 +947,7 @@ input:checked + .slider:before {
 .sign-off-textarea {
   width: 100%;
   min-height: 100px;
-  background-color: transparent;
+  background-color: #fff;
   border: 1px solid var(--text-color);
   font-family: inherit;
   font-size: 1rem;
