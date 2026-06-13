@@ -997,7 +997,6 @@ input:checked + .slider:before {
 
 .reflection-textarea {
   width: 100%;
-  min-height: 40px;
   background-color: #fff;
   border: 1px solid var(--text-color);
   font-family: inherit;

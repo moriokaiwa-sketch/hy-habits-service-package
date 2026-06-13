@@ -917,6 +917,7 @@ function App() {
           <div className="reflection-inputs">
             <textarea
               className="reflection-textarea"
+              rows={1}
               placeholder="NEW THINGS"
               value={newThings}
               onChange={(e) => {
@@ -928,6 +929,7 @@ function App() {
             />
             <textarea
               className="reflection-textarea"
+              rows={1}
               placeholder="MOMENT OF THE DAY"
               value={momentOfTheDay}
               onChange={(e) => {
@@ -939,6 +941,7 @@ function App() {
             />
             <textarea
               className="reflection-textarea"
+              rows={1}
               placeholder="APPRECIATE"
               value={appreciate}
               onChange={(e) => {
