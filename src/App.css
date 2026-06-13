@@ -901,7 +901,34 @@ input:checked + .slider:before {
 .rating-container {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: space-between;
+}
+
+.stars-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+.copy-memo-btn {
+  background: transparent;
+  border: 1px solid var(--text-color);
+  color: var(--text-color);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease-in-out;
+}
+
+.copy-memo-btn:hover {
+  background-color: var(--text-color);
+  color: var(--task-bg);
+}
+
+.copy-memo-btn:active {
+  transform: scale(0.95);
 }
 
 .star-icon {

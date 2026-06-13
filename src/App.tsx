@@ -843,17 +843,36 @@ function App() {
         </div>
         <div className="sign-off-content">
           <div className="rating-container">
-            {[1, 2, 3, 4, 5].map(star => (
-              <StarIcon 
-                key={star} 
-                filled={dayRating >= star} 
-                onClick={() => setDayRating(star)} 
-              />
-            ))}
+            <div className="stars-wrapper">
+              {[1, 2, 3, 4, 5].map(star => (
+                <StarIcon 
+                  key={star} 
+                  filled={dayRating >= star} 
+                  onClick={() => setDayRating(star)} 
+                />
+              ))}
+            </div>
+            <button 
+              className="copy-memo-btn" 
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(signOffNote);
+                  // Optional: add a small visual feedback if needed
+                } catch (err) {
+                  console.error('Failed to copy text: ', err);
+                }
+              }}
+              title="Copy Memo"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+            </button>
           </div>
           <textarea
             className="sign-off-textarea"
-            placeholder="・最高だった瞬間は？&#10;・感謝したいことは？&#10;・明日の決意は？"
+            placeholder="MEMO"
             value={signOffNote}
             onChange={(e) => {
               setSignOffNote(e.target.value);
