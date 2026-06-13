@@ -987,3 +987,35 @@ input:checked + .slider:before {
   font-weight: bold;
   color: var(--text-color);
 }
+
+.reflection-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.reflection-textarea {
+  width: 100%;
+  min-height: 40px;
+  background-color: #fff;
+  border: 1px solid var(--text-color);
+  font-family: inherit;
+  font-size: 1rem;
+  color: var(--text-color);
+  padding: 0.5rem 0.75rem;
+  box-sizing: border-box;
+  resize: none;
+  overflow: hidden;
+  line-height: 1.5;
+}
+
+.reflection-textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+}
+
+.reflection-textarea::placeholder {
+  color: rgba(0, 0, 0, 0.4);
+  font-weight: bold;
+}

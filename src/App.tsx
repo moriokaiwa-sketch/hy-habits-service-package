@@ -206,6 +206,9 @@ function App() {
   const rewardImage: string | null = activeCard.rewardImage;
   const dayRating: number = activeCard.dayRating || 0;
   const signOffNote: string = activeCard.signOffNote || '';
+  const newThings: string = activeCard.newThings || '';
+  const momentOfTheDay: string = activeCard.momentOfTheDay || '';
+  const appreciate: string = activeCard.appreciate || '';
 
   const setCategories = (newCats: any) => {
     setCards(prev => {
@@ -242,6 +245,27 @@ function App() {
     setCards(prev => {
       const card = prev[activeDate] || { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
       return { ...prev, [activeDate]: { ...card, signOffNote: note } };
+    });
+  };
+
+  const setNewThings = (val: string) => {
+    setCards(prev => {
+      const card = prev[activeDate] || { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
+      return { ...prev, [activeDate]: { ...card, newThings: val } };
+    });
+  };
+
+  const setMomentOfTheDay = (val: string) => {
+    setCards(prev => {
+      const card = prev[activeDate] || { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
+      return { ...prev, [activeDate]: { ...card, momentOfTheDay: val } };
+    });
+  };
+
+  const setAppreciate = (val: string) => {
+    setCards(prev => {
+      const card = prev[activeDate] || { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
+      return { ...prev, [activeDate]: { ...card, appreciate: val } };
     });
   };
 
@@ -888,6 +912,42 @@ function App() {
                 />
               ))}
             </div>
+          </div>
+          
+          <div className="reflection-inputs">
+            <textarea
+              className="reflection-textarea"
+              placeholder="NEW THINGS"
+              value={newThings}
+              onChange={(e) => {
+                setNewThings(e.target.value);
+                e.target.style.height = 'auto';
+                e.target.style.height = `${e.target.scrollHeight}px`;
+              }}
+              ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px`; } }}
+            />
+            <textarea
+              className="reflection-textarea"
+              placeholder="MOMENT OF THE DAY"
+              value={momentOfTheDay}
+              onChange={(e) => {
+                setMomentOfTheDay(e.target.value);
+                e.target.style.height = 'auto';
+                e.target.style.height = `${e.target.scrollHeight}px`;
+              }}
+              ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px`; } }}
+            />
+            <textarea
+              className="reflection-textarea"
+              placeholder="APPRECIATE"
+              value={appreciate}
+              onChange={(e) => {
+                setAppreciate(e.target.value);
+                e.target.style.height = 'auto';
+                e.target.style.height = `${e.target.scrollHeight}px`;
+              }}
+              ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px`; } }}
+            />
           </div>
         </div>
       </div>
