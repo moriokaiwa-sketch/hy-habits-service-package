@@ -29,6 +29,7 @@ interface Habit {
   isDone: boolean;
   isSkipped?: boolean;
   time?: string;
+  estimatedTime?: number;
 }
 
 interface Category {
@@ -414,7 +415,17 @@ function App() {
       if (c.id === categoryId) {
         return {
           ...c,
-          items: c.items.map(t => t.id === taskId ? { ...t, time: newTime } : t)
+          items: c.items.map(t => {
+            if (t.id === taskId) {
+              const estimatedTime = newTime.trim() !== '' ? parseInt(newTime, 10) : undefined;
+              return { 
+                ...t, 
+                time: newTime, 
+                estimatedTime: Number.isNaN(estimatedTime) ? undefined : estimatedTime 
+              };
+            }
+            return t;
+          })
         };
       }
       return c;
@@ -700,7 +711,32 @@ function App() {
                             </button>
                           </div>
                         ) : (
-                          category.name
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                            <span>{category.name}</span>
+                            {(() => {
+                              let total = 0;
+                              let hasTimeTasks = false;
+                              category.items.forEach(habit => {
+                                let timeVal = habit.estimatedTime;
+                                if (timeVal === undefined && habit.time) {
+                                  const parsed = parseInt(habit.time, 10);
+                                  if (!isNaN(parsed)) timeVal = parsed;
+                                }
+                                if (timeVal !== undefined && timeVal > 0) {
+                                  hasTimeTasks = true;
+                                  if (!habit.isDone) {
+                                    total += timeVal;
+                                  }
+                                }
+                              });
+                              if (!hasTimeTasks) return null;
+                              return (
+                                <div className="category-time-counter">
+                                  {total}
+                                </div>
+                              );
+                            })()}
+                          </div>
                         )}
                       </div>
 
