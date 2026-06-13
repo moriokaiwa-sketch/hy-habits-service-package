@@ -237,11 +237,14 @@ input:checked + .slider:before {
 .category-header-single {
   width: 100%;
   background-color: #e0e0e0;
-  padding: 0.75rem 1rem;
+  padding: 0;
+  display: flex;
   font-size: 1.1rem;
   color: var(--text-color);
   box-sizing: border-box;
 }
+
+
 
 .category-is-dragging {
   box-shadow: 0 10px 20px rgba(0,0,0,0.2);
@@ -268,6 +271,8 @@ input:checked + .slider:before {
   align-items: center;
   width: 100%;
   gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  box-sizing: border-box;
 }
 
 .category-input {
@@ -969,9 +974,12 @@ input:checked + .slider:before {
 }
 
 .category-time-counter {
-  border: 2px solid var(--text-color);
+  border-left: 2px solid var(--text-color);
   background-color: #fff;
-  padding: 0.1rem 0.5rem;
+  padding: 0 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-family: monospace;
   font-size: 1.2rem;
   font-weight: bold;

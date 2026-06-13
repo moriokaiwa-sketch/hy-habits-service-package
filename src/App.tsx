@@ -711,8 +711,8 @@ function App() {
                             </button>
                           </div>
                         ) : (
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                            <span>{category.name}</span>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'stretch', width: '100%' }}>
+                            <span style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'center' }}>{category.name}</span>
                             {(() => {
                               let total = 0;
                               let hasTimeTasks = false;
