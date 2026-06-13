@@ -891,7 +891,7 @@ input:checked + .slider:before {
 .sign-off-content {
   display: flex;
   flex-direction: column;
-  background-color: var(--task-bg);
+  background-color: #fff;
   border: 2px solid var(--text-color);
   border-top: none;
   padding: 1rem;
