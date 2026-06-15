@@ -748,7 +748,7 @@ function App() {
                                 }
                                 if (timeVal !== undefined && timeVal > 0) {
                                   hasTimeTasks = true;
-                                  if (!habit.isDone) {
+                                  if (!habit.isDone && !habit.isSkipped) {
                                     total += timeVal;
                                   }
                                 }
