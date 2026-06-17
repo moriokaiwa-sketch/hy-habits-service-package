@@ -598,6 +598,24 @@ function App() {
     }
   };
 
+  const handleArchiveCycle = () => {
+    if (window.confirm("現在のサイクルを終了し、過去ログにアーカイブしますか？")) {
+      const cycleId = `cycle-${Date.now()}`;
+      const archivedStr = localStorage.getItem('archivedCycles');
+      const archived = archivedStr ? JSON.parse(archivedStr) : [];
+      archived.push({
+        cycleId,
+        timestamp: Date.now(),
+        cards: cards
+      });
+      localStorage.setItem('archivedCycles', JSON.stringify(archived));
+      
+      setCards({});
+      setSelectedIssueDate(getTodayDate());
+      setIsShiftModalOpen(true);
+    }
+  };
+
   const addCategory = () => {
     const newId = `cat-${Date.now()}`;
     setCategories([...categories, { id: newId, name: "", items: [] }]);
@@ -694,6 +712,7 @@ function App() {
             <span className="slider"></span>
           </label>
           <button className="settings-btn" onClick={() => setIsSettingsModalOpen(true)} title="Reward Settings">⚙️</button>
+          <button className="archive-btn" onClick={handleArchiveCycle} title="Archive Cycle" style={{ marginLeft: '0.5rem', background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>📁</button>
         </div>
       </div>
       <hr className="header-divider" />
