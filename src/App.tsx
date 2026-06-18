@@ -530,7 +530,29 @@ function App() {
     }
   };
 
+  const titlePressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const openShiftModal = () => {
+    setIsShiftModalOpen(true);
+  };
+
+  const handleTitleTouchStart = () => {
+    titlePressTimer.current = setTimeout(() => {
+      openShiftModal();
+    }, 800);
+  };
+
+  const handleTitleTouchEnd = () => {
+    if (titlePressTimer.current) {
+      clearTimeout(titlePressTimer.current);
+      titlePressTimer.current = null;
+    }
+  };
+
+  const handleTitleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    openShiftModal();
+  };
 
   const loadShiftTemplate = (shift: string) => {
     const template = templates[shift] || [];
@@ -779,8 +801,15 @@ function App() {
           <div className="document-title">
             <div 
               className="card-title"
-              style={{ userSelect: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
-              title="HABITS CARD"
+              onTouchStart={handleTitleTouchStart}
+              onTouchEnd={handleTitleTouchEnd}
+              onTouchMove={handleTitleTouchEnd}
+              onMouseDown={handleTitleTouchStart}
+              onMouseUp={handleTitleTouchEnd}
+              onMouseLeave={handleTitleTouchEnd}
+              onContextMenu={handleTitleContextMenu}
+              style={{ cursor: 'pointer', userSelect: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
+              title="Long press or right-click to issue a new card"
             >
               HABITS CARD
             </div>
