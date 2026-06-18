@@ -1018,3 +1018,98 @@ input:checked + .slider:before {
   color: rgba(0, 0, 0, 0.4);
   font-weight: bold;
 }
+
+/* Archive Feature */
+.archive-modal-content {
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.archive-month-group {
+  margin-bottom: 2rem;
+}
+
+.archive-month-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  border-bottom: 2px solid var(--text-color);
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+}
+
+.archive-shift-group {
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.archive-shift-header {
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.archive-cards-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.archive-card-box {
+  width: 4.5rem;
+  height: 4.5rem;
+  border: 2px solid var(--text-color);
+  background-color: var(--task-bg);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  box-shadow: 2px 2px 0px rgba(0,0,0,0.1);
+  transition: transform 0.1s;
+}
+
+.archive-card-box:hover {
+  transform: translateY(-2px);
+  background-color: #f8f8f8;
+}
+
+.archive-card-box:active {
+  transform: translateY(0);
+}
+
+.archive-card-date {
+  font-weight: bold;
+  font-size: 1.1rem;
+  font-family: monospace;
+}
+
+.archive-card-shift {
+  font-size: 0.9rem;
+  color: #555;
+  margin-top: 0.25rem;
+}
+
+.read-only-banner {
+  background-color: #ffe0b2; /* distinct warning/archive color */
+  border: 2px solid var(--text-color);
+  color: var(--text-color);
+  padding: 0.75rem 1rem;
+  font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.1);
+}
+
+.read-only-banner button {
+  background-color: var(--text-color);
+  color: #fff;
+  border: none;
+  padding: 0.4rem 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 4px;
+}

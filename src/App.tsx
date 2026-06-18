@@ -190,14 +190,23 @@ function App() {
     }
   }, [cards, isFirebaseLoaded]);
 
+  const [isArchiveListOpen, setIsArchiveListOpen] = useState(false);
+  const [viewingArchivedCycle, setViewingArchivedCycle] = useState<{ cycleData: Record<string, any>, activeDate: string } | null>(null);
+
+  const displayCards = viewingArchivedCycle ? viewingArchivedCycle.cycleData : cards;
+  const currentActiveDate = viewingArchivedCycle ? viewingArchivedCycle.activeDate : activeDate;
+
   // Derived state for the active tab
-  const activeCard = cards[activeDate] || {
+  const activeCard = displayCards[currentActiveDate] || {
     categories: defaultCategories,
     currentShift: '日勤',
     signature: null,
     rewardImage: null,
     dayRating: 0,
-    signOffNote: ''
+    signOffNote: '',
+    newThings: '',
+    momentOfTheDay: '',
+    appreciate: ''
   };
 
   const categories: Category[] = activeCard.categories;
@@ -211,6 +220,7 @@ function App() {
   const appreciate: string = activeCard.appreciate || '';
 
   const setCategories = (newCats: any) => {
+    if (viewingArchivedCycle) return;
     setCards(prev => {
       const card = prev[activeDate] || { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null };
       const resolved = typeof newCats === 'function' ? newCats(card.categories) : newCats;
@@ -221,6 +231,7 @@ function App() {
 
 
   const setSignature = (sig: string | null) => {
+    if (viewingArchivedCycle) return;
     setCards(prev => {
       const card = prev[activeDate] || { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null };
       return { ...prev, [activeDate]: { ...card, signature: sig } };
@@ -228,6 +239,7 @@ function App() {
   };
 
   const setRewardImage = (img: string | null) => {
+    if (viewingArchivedCycle) return;
     setCards(prev => {
       const card = prev[activeDate] || { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
       return { ...prev, [activeDate]: { ...card, rewardImage: img } };
@@ -235,6 +247,7 @@ function App() {
   };
 
   const setDayRating = (rating: number) => {
+    if (viewingArchivedCycle) return;
     setCards(prev => {
       const card = prev[activeDate] || { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
       return { ...prev, [activeDate]: { ...card, dayRating: rating } };
@@ -242,6 +255,7 @@ function App() {
   };
 
   const setSignOffNote = (note: string) => {
+    if (viewingArchivedCycle) return;
     setCards(prev => {
       const card = prev[activeDate] || { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
       return { ...prev, [activeDate]: { ...card, signOffNote: note } };
@@ -249,6 +263,7 @@ function App() {
   };
 
   const setNewThings = (val: string) => {
+    if (viewingArchivedCycle) return;
     setCards(prev => {
       const card = prev[activeDate] || { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
       return { ...prev, [activeDate]: { ...card, newThings: val } };
@@ -256,6 +271,7 @@ function App() {
   };
 
   const setMomentOfTheDay = (val: string) => {
+    if (viewingArchivedCycle) return;
     setCards(prev => {
       const card = prev[activeDate] || { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
       return { ...prev, [activeDate]: { ...card, momentOfTheDay: val } };
@@ -263,6 +279,7 @@ function App() {
   };
 
   const setAppreciate = (val: string) => {
+    if (viewingArchivedCycle) return;
     setCards(prev => {
       const card = prev[activeDate] || { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
       return { ...prev, [activeDate]: { ...card, appreciate: val } };
@@ -513,29 +530,7 @@ function App() {
     }
   };
 
-  const titlePressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const openShiftModal = () => {
-    setIsShiftModalOpen(true);
-  };
-
-  const handleTitleTouchStart = () => {
-    titlePressTimer.current = setTimeout(() => {
-      openShiftModal();
-    }, 800);
-  };
-
-  const handleTitleTouchEnd = () => {
-    if (titlePressTimer.current) {
-      clearTimeout(titlePressTimer.current);
-      titlePressTimer.current = null;
-    }
-  };
-
-  const handleTitleContextMenu = (e: React.MouseEvent) => {
-    e.preventDefault();
-    openShiftModal();
-  };
 
   const loadShiftTemplate = (shift: string) => {
     const template = templates[shift] || [];
@@ -656,24 +651,120 @@ function App() {
 
 
 
+  const renderArchiveModal = () => {
+    if (!isArchiveListOpen) return null;
+
+    const archivedStr = localStorage.getItem('archivedCycles');
+    const archivedCycles = archivedStr ? JSON.parse(archivedStr) : [];
+    
+    const groupedByMonth: Record<string, Array<{ cycle: any, shiftIndex: number }>> = {};
+    const cycleCountsByMonth: Record<string, number> = {};
+
+    archivedCycles.forEach((cycle: any) => {
+      const dates = Object.keys(cycle.cards).sort();
+      if (dates.length === 0) return;
+      const firstDateStr = dates[0];
+      const monthStr = firstDateStr.substring(0, 7); // e.g. "2026-06"
+      
+      if (!cycleCountsByMonth[monthStr]) cycleCountsByMonth[monthStr] = 0;
+      cycleCountsByMonth[monthStr]++;
+      
+      if (!groupedByMonth[monthStr]) groupedByMonth[monthStr] = [];
+      groupedByMonth[monthStr].push({
+        cycle,
+        shiftIndex: cycleCountsByMonth[monthStr]
+      });
+    });
+
+    return (
+      <div className="modal-overlay" onClick={() => setIsArchiveListOpen(false)}>
+        <div className="modal-content archive-modal-content" onClick={e => e.stopPropagation()}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <h3 className="modal-title" style={{ margin: 0 }}>アーカイブ一覧</h3>
+            <button onClick={() => setIsArchiveListOpen(false)} style={{ background: 'none', border: 'none', fontSize: '2rem', cursor: 'pointer', lineHeight: 1 }}>×</button>
+          </div>
+          
+          {Object.keys(groupedByMonth).length === 0 ? (
+            <p>アーカイブされたサイクルはありません。</p>
+          ) : (
+            Object.keys(groupedByMonth).sort().reverse().map(monthStr => {
+              const [, month] = monthStr.split('-');
+              const monthLabel = `${parseInt(month, 10)}月`; // "6月"
+              
+              return (
+                <div key={monthStr} className="archive-month-group">
+                  <div className="archive-month-title">{monthLabel}</div>
+                  {groupedByMonth[monthStr].map(({ cycle, shiftIndex }) => {
+                    const dates = Object.keys(cycle.cards).sort();
+                    return (
+                      <div key={cycle.cycleId} className="archive-shift-group">
+                        <div className="archive-shift-header">シフト {shiftIndex}</div>
+                        <div className="archive-cards-row">
+                          {dates.map(dateStr => {
+                            const c = cycle.cards[dateStr];
+                            const dayNum = parseInt(dateStr.split('-')[2], 10);
+                            return (
+                              <div 
+                                key={dateStr} 
+                                className="archive-card-box"
+                                onClick={() => {
+                                  setViewingArchivedCycle({ cycleData: cycle.cards, activeDate: dateStr });
+                                  setIsArchiveListOpen(false);
+                                  setIsEditMode(false); // Force execution mode UI for read-only
+                                }}
+                              >
+                                <div className="archive-card-date">{dayNum}</div>
+                                <div className="archive-card-shift">{c.currentShift}</div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className={`app-container ${isEditMode ? 'edit-mode' : 'execution-mode'}`}>
-      {Object.keys(cards).length > 1 && (
+    <div className={`app-container ${isEditMode ? 'edit-mode' : 'execution-mode'} ${viewingArchivedCycle ? 'archive-mode' : ''}`}>
+      {viewingArchivedCycle && (
+        <div className="read-only-banner">
+          <span>⚠️ アーカイブ閲覧中 (Read-Only)</span>
+          <button onClick={() => setViewingArchivedCycle(null)}>閉じる</button>
+        </div>
+      )}
+      {Object.keys(displayCards).length > 1 && (
         <div className="date-tabs">
-          {Object.keys(cards).sort().map(dateStr => (
+          {Object.keys(displayCards).sort().map(dateStr => (
             <button 
               key={dateStr}
-              className={`date-tab ${dateStr === activeDate ? 'active' : ''}`}
-              onClick={() => setActiveDate(dateStr)}
-              onTouchStart={() => handleTabTouchStart(dateStr)}
+              className={`date-tab ${dateStr === currentActiveDate ? 'active' : ''}`}
+              onClick={() => {
+                if (viewingArchivedCycle) {
+                  setViewingArchivedCycle({ ...viewingArchivedCycle, activeDate: dateStr });
+                } else {
+                  setActiveDate(dateStr);
+                }
+              }}
+              onTouchStart={() => {
+                if (!viewingArchivedCycle) handleTabTouchStart(dateStr);
+              }}
               onTouchEnd={handleTabTouchEnd}
               onTouchMove={handleTabTouchEnd}
-              onMouseDown={() => handleTabTouchStart(dateStr)}
+              onMouseDown={() => {
+                if (!viewingArchivedCycle) handleTabTouchStart(dateStr);
+              }}
               onMouseUp={handleTabTouchEnd}
               onMouseLeave={handleTabTouchEnd}
               onContextMenu={e => {
                 e.preventDefault();
-                handleTabTouchStart(dateStr);
+                if (!viewingArchivedCycle) handleTabTouchStart(dateStr);
               }}
               style={{ userSelect: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
               title="長押しまたは右クリックでカードを削除"
@@ -688,31 +779,29 @@ function App() {
           <div className="document-title">
             <div 
               className="card-title"
-              onTouchStart={handleTitleTouchStart}
-              onTouchEnd={handleTitleTouchEnd}
-              onTouchMove={handleTitleTouchEnd}
-              onMouseDown={handleTitleTouchStart}
-              onMouseUp={handleTitleTouchEnd}
-              onMouseLeave={handleTitleTouchEnd}
-              onContextMenu={handleTitleContextMenu}
-              style={{ cursor: 'pointer', userSelect: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
-              title="Long press or right-click to issue a new card"
+              style={{ userSelect: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
+              title="HABITS CARD"
             >
               HABITS CARD
             </div>
           </div>
           <div className="issue-date">
-            Issue date: {activeDate} <span className="shift-badge">[{currentShift}]</span>
+            Issue date: {currentActiveDate} <span className="shift-badge">[{currentShift}]</span>
           </div>
         </div>
         <div className="mode-toggle">
-          <span>{isEditMode ? 'Edit Mode' : 'Execution Mode'}</span>
-          <label className="switch">
-            <input type="checkbox" checked={isEditMode} onChange={toggleMode} />
-            <span className="slider"></span>
-          </label>
-          <button className="settings-btn" onClick={() => setIsSettingsModalOpen(true)} title="Reward Settings">⚙️</button>
-          <button className="archive-btn" onClick={handleArchiveCycle} title="Archive Cycle" style={{ marginLeft: '0.5rem', background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>📁</button>
+          {!viewingArchivedCycle && (
+            <>
+              <span>{isEditMode ? 'Edit Mode' : 'Execution Mode'}</span>
+              <label className="switch">
+                <input type="checkbox" checked={isEditMode} onChange={toggleMode} />
+                <span className="slider"></span>
+              </label>
+            </>
+          )}
+          <button className="settings-btn" onClick={() => setIsSettingsModalOpen(true)} title="Reward Settings" disabled={!!viewingArchivedCycle}>⚙️</button>
+          <button className="archive-list-btn" onClick={() => setIsArchiveListOpen(true)} title="View Archives" style={{ marginLeft: '0.5rem', background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>📚</button>
+          <button className="archive-btn" onClick={handleArchiveCycle} title="Archive Cycle" style={{ marginLeft: '0.5rem', background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }} disabled={!!viewingArchivedCycle}>📁</button>
         </div>
       </div>
       <hr className="header-divider" />
@@ -1154,6 +1243,8 @@ function App() {
           </div>
         </div>
       )}
+
+      {renderArchiveModal()}
     </div>
   );
 }
