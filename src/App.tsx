@@ -3,6 +3,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea
 import SignatureCanvas from 'react-signature-canvas';
 import { db } from './firebase';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import html2canvas from 'html2canvas';
 import './App.css';
 
 const StarIcon = ({ filled, onClick }: { filled: boolean, onClick: () => void }) => (
@@ -753,6 +754,42 @@ function App() {
     );
   };
 
+  const signOffNotesRef = useRef<HTMLDivElement>(null);
+
+  const handleScreenshot = async () => {
+    if (!signOffNotesRef.current) return;
+    
+    try {
+      // Temporarily add a class or style if needed, but html2canvas should capture as-is
+      const canvas = await html2canvas(signOffNotesRef.current, {
+        backgroundColor: '#f2f2f2', // Match the app's background color
+        scale: 2, // Higher resolution for better quality
+      });
+      
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+        try {
+          const item = new ClipboardItem({ 'image/png': blob });
+          await navigator.clipboard.write([item]);
+          alert("SIGN-OFF NOTESのスクリーンショットをクリップボードにコピーしました！");
+        } catch (err) {
+          console.error("Clipboard API failed, falling back to download", err);
+          // Fallback: download the image
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `signoff-notes-${activeDate}.png`;
+          a.click();
+          URL.revokeObjectURL(url);
+          alert("クリップボードへのコピーに失敗したため、画像をダウンロードしました。");
+        }
+      }, 'image/png');
+    } catch (err) {
+      console.error("Screenshot failed", err);
+      alert("スクリーンショットの生成に失敗しました。");
+    }
+  };
+
   return (
     <div className={`app-container ${isEditMode ? 'edit-mode' : 'execution-mode'} ${viewingArchivedCycle ? 'archive-mode' : ''}`}>
       {viewingArchivedCycle && (
@@ -1036,9 +1073,18 @@ function App() {
       )}
 
       {/* SIGN-OFF NOTES Section */}
-      <div className="table-container sign-off-container">
-        <div className="table-header category-header-single">
+      <div className="table-container sign-off-container" ref={signOffNotesRef}>
+        <div className="table-header category-header-single" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ padding: '0.75rem 1rem' }}>SIGN-OFF NOTES</span>
+          {!isEditMode && (
+            <button 
+              onClick={handleScreenshot}
+              style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', padding: '0.5rem 1rem' }}
+              title="Copy screenshot to clipboard"
+            >
+              📷
+            </button>
+          )}
         </div>
         <div className="sign-off-content">
           <div className="rating-container">
