@@ -959,15 +959,17 @@ function App() {
 
                           <div className="time-cell">
                             {isEditMode ? (
-                              <input
+                              <select
                                 className="time-input"
-                                type="number"
-                                inputMode="numeric"
-                                pattern="[0-9]*"
                                 value={habit.time || ''}
                                 onChange={(e) => handleTimeChange(category.id, habit.id, e.target.value)}
-                                placeholder="-"
-                              />
+                                style={{ appearance: 'none', WebkitAppearance: 'none', textAlign: 'center', cursor: 'pointer' }}
+                              >
+                                <option value="">-</option>
+                                {[1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 40, 50, 60].map(val => (
+                                  <option key={val} value={val}>{val}</option>
+                                ))}
+                              </select>
                             ) : (
                               <span className="time-display">{habit.time}</span>
                             )}
