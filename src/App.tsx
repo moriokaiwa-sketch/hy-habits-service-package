@@ -768,21 +768,41 @@ function App() {
       
       canvas.toBlob(async (blob) => {
         if (!blob) return;
+        
+        const file = new File([blob], `signoff-notes-${activeDate}.png`, { type: 'image/png' });
+        
+        // 1. Web Share API (Best for Mobile iOS/Android)
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: 'SIGN-OFF NOTES',
+            });
+            return; // Successfully shared or copied via native sheet
+          } catch (err) {
+            console.error("Share API failed or cancelled", err);
+            // Fall through to Clipboard API
+          }
+        }
+
+        // 2. Clipboard API (Best for Desktop)
         try {
           const item = new ClipboardItem({ 'image/png': blob });
           await navigator.clipboard.write([item]);
           alert("SIGN-OFF NOTESのスクリーンショットをクリップボードにコピーしました！");
+          return;
         } catch (err) {
           console.error("Clipboard API failed, falling back to download", err);
-          // Fallback: download the image
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `signoff-notes-${activeDate}.png`;
-          a.click();
-          URL.revokeObjectURL(url);
-          alert("クリップボードへのコピーに失敗したため、画像をダウンロードしました。");
         }
+
+        // 3. Fallback: Download / Open in new tab
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `signoff-notes-${activeDate}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+        alert("画像を保存しました。");
       }, 'image/png');
     } catch (err) {
       console.error("Screenshot failed", err);
