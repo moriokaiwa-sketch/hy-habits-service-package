@@ -460,11 +460,13 @@ function App() {
           items: c.items.map(t => {
             if (t.id === taskId) {
               const estimatedTime = newTime.trim() !== '' ? parseInt(newTime, 10) : undefined;
-              return { 
-                ...t, 
-                time: newTime, 
-                estimatedTime: Number.isNaN(estimatedTime) ? undefined : estimatedTime 
-              };
+              const updatedHabit = { ...t, time: newTime };
+              if (estimatedTime === undefined || Number.isNaN(estimatedTime)) {
+                delete updatedHabit.estimatedTime;
+              } else {
+                updatedHabit.estimatedTime = estimatedTime;
+              }
+              return updatedHabit;
             }
             return t;
           })
