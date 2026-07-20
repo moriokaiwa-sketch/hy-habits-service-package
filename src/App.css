@@ -787,8 +787,8 @@ input:checked + .slider:before {
 }
 
 .reward-preview-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
   margin-bottom: 1rem;
   max-height: 200px;
@@ -801,8 +801,8 @@ input:checked + .slider:before {
 
 .reward-preview-item {
   position: relative;
-  width: 100%;
-  aspect-ratio: 1 / 1;
+  width: 70px;
+  height: 70px;
   border-radius: 4px;
   overflow: hidden;
   cursor: pointer;
@@ -810,6 +810,7 @@ input:checked + .slider:before {
   transition: transform 0.1s, opacity 0.2s;
   user-select: none;
   -webkit-touch-callout: none;
+  flex-shrink: 0;
 }
 
 .reward-preview-item:active {
