@@ -130,7 +130,12 @@ function App() {
   const [activeDate, setActiveDate] = useState<string>(getTodayDate());
   const [selectedIssueDate, setSelectedIssueDate] = useState<string>(getTodayDate());
 
-  const lastSyncStr = useRef({ cards: '', templates: '', rewardImageUrls: '' });
+  const [archivedCycles, setArchivedCycles] = useState<any[]>(() => {
+    const saved = localStorage.getItem('archivedCycles');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const lastSyncStr = useRef({ cards: '', templates: '', rewardImageUrls: '', archivedCycles: '' });
   const [isFirebaseLoaded, setIsFirebaseLoaded] = useState(false);
 
   // Clean up old cards on load
@@ -171,6 +176,30 @@ function App() {
           lastSyncStr.current.rewardImageUrls = data.rewardImageUrls;
           setRewardImageUrls(data.rewardImageUrls);
         }
+        if (data.archivedCycles) {
+          setArchivedCycles(prev => {
+            const merged = [...prev];
+            const existingIds = new Set(prev.map(c => c.cycleId));
+            let changed = false;
+            data.archivedCycles.forEach((c: any) => {
+              if (!existingIds.has(c.cycleId)) {
+                merged.push(c);
+                changed = true;
+              }
+            });
+            if (changed) {
+              merged.sort((a, b) => a.timestamp - b.timestamp);
+              lastSyncStr.current.archivedCycles = JSON.stringify(merged);
+              return merged;
+            } else if (prev.length === data.archivedCycles.length) {
+              lastSyncStr.current.archivedCycles = JSON.stringify(data.archivedCycles);
+            } else if (prev.length > data.archivedCycles.length) {
+              // Local has more items, we should trigger a sync up
+              // by not updating lastSyncStr, the next useEffect will upload local to Firebase
+            }
+            return prev;
+          });
+        }
       }
       setIsFirebaseLoaded(true);
     }, (error) => {
@@ -190,6 +219,16 @@ function App() {
       setDoc(doc(db, 'appData', 'sharedState'), { cards }, { merge: true }).catch(console.error);
     }
   }, [cards, isFirebaseLoaded]);
+
+  useEffect(() => {
+    const currentStr = JSON.stringify(archivedCycles);
+    localStorage.setItem('archivedCycles', currentStr);
+    
+    if (isFirebaseLoaded && db && currentStr !== lastSyncStr.current.archivedCycles) {
+      lastSyncStr.current.archivedCycles = currentStr;
+      setDoc(doc(db, 'appData', 'sharedState'), { archivedCycles }, { merge: true }).catch(console.error);
+    }
+  }, [archivedCycles, isFirebaseLoaded]);
 
   const [isArchiveListOpen, setIsArchiveListOpen] = useState(false);
   const [viewingArchivedCycle, setViewingArchivedCycle] = useState<{ cycleData: Record<string, any>, activeDate: string } | null>(null);
@@ -621,14 +660,11 @@ function App() {
   const handleArchiveCycle = () => {
     if (window.confirm("現在のサイクルを終了し、過去ログにアーカイブしますか？")) {
       const cycleId = `cycle-${Date.now()}`;
-      const archivedStr = localStorage.getItem('archivedCycles');
-      const archived = archivedStr ? JSON.parse(archivedStr) : [];
-      archived.push({
+      setArchivedCycles(prev => [...prev, {
         cycleId,
         timestamp: Date.now(),
         cards: cards
-      });
-      localStorage.setItem('archivedCycles', JSON.stringify(archived));
+      }]);
       
       setCards({});
       setSelectedIssueDate(getTodayDate());
@@ -699,9 +735,6 @@ function App() {
 
   const renderArchiveModal = () => {
     if (!isArchiveListOpen) return null;
-
-    const archivedStr = localStorage.getItem('archivedCycles');
-    const archivedCycles = archivedStr ? JSON.parse(archivedStr) : [];
     
     const groupedByMonth: Record<string, Array<{ cycle: any, shiftIndex: number }>> = {};
     const cycleCountsByMonth: Record<string, number> = {};
