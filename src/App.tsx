@@ -643,6 +643,27 @@ function App() {
 
   const tabPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const rewardPreviewPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleRewardTouchStart = (urlToRemove: string) => {
+    rewardPreviewPressTimer.current = setTimeout(() => {
+      if (window.confirm("この画像を削除しますか？")) {
+        setRewardImageUrls(prev => {
+          const list = prev.split('\n').map(u => u.trim()).filter(u => u !== '');
+          const newList = list.filter(u => u !== urlToRemove);
+          return newList.join('\n');
+        });
+      }
+    }, 800);
+  };
+
+  const handleRewardTouchEnd = () => {
+    if (rewardPreviewPressTimer.current) {
+      clearTimeout(rewardPreviewPressTimer.current);
+      rewardPreviewPressTimer.current = null;
+    }
+  };
+
   const handleTabTouchStart = (dateStr: string) => {
     tabPressTimer.current = setTimeout(() => {
       if (window.confirm(`${formatDateLabel(dateStr)} のカードを削除しますか？`)) {
@@ -1278,6 +1299,23 @@ function App() {
             <p className="settings-desc">ご褒美画像のURL（ウェブ上の画像リンク）を1行ずつ貼り付けてください。サイン完了時にランダムで1枚表示されます。</p>
             
             <div className="settings-field">
+              <label>Preview</label>
+              <div className="reward-preview-grid">
+                {rewardImageUrls.split('\n').map(u => u.trim()).filter(u => u !== '').map((url, i) => (
+                  <div 
+                    key={`${url}-${i}`} 
+                    className="reward-preview-item"
+                    onTouchStart={() => handleRewardTouchStart(url)}
+                    onTouchEnd={handleRewardTouchEnd}
+                    onMouseDown={() => handleRewardTouchStart(url)}
+                    onMouseUp={handleRewardTouchEnd}
+                    onMouseLeave={handleRewardTouchEnd}
+                  >
+                    <img src={url} alt={`preview-${i}`} className="reward-preview-img" />
+                  </div>
+                ))}
+              </div>
+              
               <label>Image URLs</label>
               <textarea 
                 value={rewardImageUrls} 
