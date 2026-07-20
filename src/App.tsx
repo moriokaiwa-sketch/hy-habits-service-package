@@ -731,7 +731,7 @@ function App() {
                             return (
                               <div 
                                 key={dateStr} 
-                                className="archive-card-box"
+                                className={`archive-card-box ${c.signature ? 'completed-day' : ''}`}
                                 onClick={() => {
                                   setViewingArchivedCycle({ cycleData: cycle.cards, activeDate: dateStr });
                                   setIsArchiveListOpen(false);
