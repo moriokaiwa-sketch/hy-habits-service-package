@@ -165,8 +165,23 @@ function App() {
       if (docSnap.exists() && !docSnap.metadata.hasPendingWrites) {
         const data = docSnap.data();
         if (data.cards) {
-          lastSyncStr.current.cards = JSON.stringify(data.cards);
-          setCards(data.cards);
+          const today = getTodayDate();
+          let cleanedCards = { ...data.cards };
+          let changed = false;
+          Object.keys(cleanedCards).forEach(date => {
+            if (date < today) {
+              delete cleanedCards[date];
+              changed = true;
+            }
+          });
+          
+          if (changed) {
+            // Force the useEffect to upload the cleaned version back to Firebase
+            lastSyncStr.current.cards = "force_sync";
+          } else {
+            lastSyncStr.current.cards = JSON.stringify(cleanedCards);
+          }
+          setCards(cleanedCards);
         }
         if (data.templates) {
           lastSyncStr.current.templates = JSON.stringify(data.templates);
