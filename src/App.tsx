@@ -138,21 +138,6 @@ function App() {
   const lastSyncStr = useRef({ cards: '', templates: '', rewardImageUrls: '', archivedCycles: '' });
   const [isFirebaseLoaded, setIsFirebaseLoaded] = useState(false);
 
-  // Clean up old cards on load
-  useEffect(() => {
-    const today = getTodayDate();
-    setCards(prev => {
-      let changed = false;
-      const newCards = { ...prev };
-      Object.keys(newCards).forEach(date => {
-        if (date < today) {
-          delete newCards[date];
-          changed = true;
-        }
-      });
-      return changed ? newCards : prev;
-    });
-  }, []);
 
   // Sync from Firestore
   useEffect(() => {
@@ -165,23 +150,8 @@ function App() {
       if (docSnap.exists() && !docSnap.metadata.hasPendingWrites) {
         const data = docSnap.data();
         if (data.cards) {
-          const today = getTodayDate();
-          let cleanedCards = { ...data.cards };
-          let changed = false;
-          Object.keys(cleanedCards).forEach(date => {
-            if (date < today) {
-              delete cleanedCards[date];
-              changed = true;
-            }
-          });
-          
-          if (changed) {
-            // Force the useEffect to upload the cleaned version back to Firebase
-            lastSyncStr.current.cards = "force_sync";
-          } else {
-            lastSyncStr.current.cards = JSON.stringify(cleanedCards);
-          }
-          setCards(cleanedCards);
+          lastSyncStr.current.cards = JSON.stringify(data.cards);
+          setCards(data.cards);
         }
         if (data.templates) {
           lastSyncStr.current.templates = JSON.stringify(data.templates);
@@ -630,14 +600,7 @@ function App() {
 
     setCards(prev => {
       const newCards = { ...prev };
-      
-      // Clean up old cards
-      const today = getTodayDate();
-      Object.keys(newCards).forEach(date => {
-        if (date < today) {
-          delete newCards[date];
-        }
-      });
+
       
       newCards[selectedIssueDate] = {
         categories: cleanCategories,
