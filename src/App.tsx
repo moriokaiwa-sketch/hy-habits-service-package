@@ -202,15 +202,25 @@ function App() {
                 changed = true;
               }
             });
+            
+            // Check if local storage has any historical items that Firebase is missing
+            const firebaseIds = new Set((data.archivedCycles || []).map((c: any) => c.cycleId));
+            const localHasExtra = prev.some(c => !firebaseIds.has(c.cycleId));
+            
             if (changed) {
               merged.sort((a, b) => a.timestamp - b.timestamp);
-              lastSyncStr.current.archivedCycles = JSON.stringify(merged);
+              if (!localHasExtra) {
+                lastSyncStr.current.archivedCycles = JSON.stringify(merged);
+              } else {
+                // Local contributed extra items, force useEffect to upload the complete merged list to Firebase
+                lastSyncStr.current.archivedCycles = "force_upload";
+              }
               return merged;
-            } else if (prev.length === data.archivedCycles.length) {
+            } else if (!localHasExtra && prev.length === data.archivedCycles.length) {
               lastSyncStr.current.archivedCycles = JSON.stringify(data.archivedCycles);
-            } else if (prev.length > data.archivedCycles.length) {
-              // Local has more items, we should trigger a sync up
-              // by not updating lastSyncStr, the next useEffect will upload local to Firebase
+            } else if (localHasExtra || prev.length > data.archivedCycles.length) {
+              // Local has items not in Firebase, force useEffect to upload
+              lastSyncStr.current.archivedCycles = "force_upload";
             }
             return prev;
           });
