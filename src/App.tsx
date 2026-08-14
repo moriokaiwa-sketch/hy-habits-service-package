@@ -212,7 +212,7 @@ function App() {
     if (isFirebaseLoaded && db && currentStr !== lastSyncStr.current.cards) {
       lastSyncStr.current.cards = currentStr;
       updateDoc(doc(db, 'appData', 'sharedState'), { cards }).catch((e) => {
-        if (e.code === 'not-found') setDoc(doc(db, 'appData', 'sharedState'), { cards });
+        if (e.code === 'not-found') setDoc(doc(db!, 'appData', 'sharedState'), { cards });
         else console.error(e);
       });
     }
@@ -368,7 +368,7 @@ function App() {
     if (isFirebaseLoaded && db && currentStr !== lastSyncStr.current.templates) {
       lastSyncStr.current.templates = currentStr;
       updateDoc(doc(db, 'appData', 'sharedState'), { templates }).catch((e) => {
-        if (e.code === 'not-found') setDoc(doc(db, 'appData', 'sharedState'), { templates });
+        if (e.code === 'not-found') setDoc(doc(db!, 'appData', 'sharedState'), { templates });
         else console.error(e);
       });
     }
