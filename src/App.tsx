@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import SignatureCanvas from 'react-signature-canvas';
 import { db } from './firebase';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import html2canvas from 'html2canvas';
 import './App.css';
 
@@ -211,7 +211,10 @@ function App() {
     
     if (isFirebaseLoaded && db && currentStr !== lastSyncStr.current.cards) {
       lastSyncStr.current.cards = currentStr;
-      setDoc(doc(db, 'appData', 'sharedState'), { cards }, { merge: true }).catch(console.error);
+      updateDoc(doc(db, 'appData', 'sharedState'), { cards }).catch((e) => {
+        if (e.code === 'not-found') setDoc(doc(db, 'appData', 'sharedState'), { cards });
+        else console.error(e);
+      });
     }
   }, [cards, isFirebaseLoaded]);
 
@@ -268,6 +271,7 @@ function App() {
   const setSignature = (sig: string | null) => {
     if (viewingArchivedCycle) return;
     setCards(prev => {
+      if (!prev[activeDate] && sig === null) return prev;
       const card = prev[activeDate] || { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null };
       return { ...prev, [activeDate]: { ...card, signature: sig } };
     });
@@ -276,6 +280,7 @@ function App() {
   const setRewardImage = (img: string | null) => {
     if (viewingArchivedCycle) return;
     setCards(prev => {
+      if (!prev[activeDate] && img === null) return prev;
       const card = prev[activeDate] || { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
       return { ...prev, [activeDate]: { ...card, rewardImage: img } };
     });
@@ -362,7 +367,10 @@ function App() {
     
     if (isFirebaseLoaded && db && currentStr !== lastSyncStr.current.templates) {
       lastSyncStr.current.templates = currentStr;
-      setDoc(doc(db, 'appData', 'sharedState'), { templates }, { merge: true }).catch(console.error);
+      updateDoc(doc(db, 'appData', 'sharedState'), { templates }).catch((e) => {
+        if (e.code === 'not-found') setDoc(doc(db, 'appData', 'sharedState'), { templates });
+        else console.error(e);
+      });
     }
   }, [templates, isFirebaseLoaded]);
 
@@ -655,7 +663,9 @@ function App() {
       }]);
       
       setCards({});
-      setSelectedIssueDate(getTodayDate());
+      const today = getTodayDate();
+      setSelectedIssueDate(today);
+      setActiveDate(today);
       setIsShiftModalOpen(true);
     }
   };
