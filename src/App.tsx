@@ -135,7 +135,40 @@ function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  const lastSyncStr = useRef({ cards: '', templates: '', rewardImageUrls: '', archivedCycles: '' });
+  const [masterCardTemplate, setMasterCardTemplate] = useState<Category[]>(() => {
+    const saved = localStorage.getItem('masterCardTemplate');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    const currentSaved = localStorage.getItem('templates');
+    if (currentSaved) {
+      try {
+        const parsed = JSON.parse(currentSaved);
+        if (parsed['日勤'] && Array.isArray(parsed['日勤']) && parsed['日勤'].length > 0) {
+          return parsed['日勤'].map((c: any) => ({
+            ...c,
+            items: (c.items || []).map((t: any) => ({
+              id: t.id,
+              task: t.task,
+              estimatedTime: t.estimatedTime,
+              isDone: false,
+              isSkipped: false
+            }))
+          }));
+        }
+      } catch (e) {}
+    }
+    return defaultCategories;
+  });
+
+  const [isEditingMasterTemplate, setIsEditingMasterTemplate] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<'menu' | 'rewards'>('menu');
+
+  const lastSyncStr = useRef({ cards: '', templates: '', rewardImageUrls: '', archivedCycles: '', masterCardTemplate: '' });
   const [isFirebaseLoaded, setIsFirebaseLoaded] = useState(false);
 
 
@@ -156,6 +189,10 @@ function App() {
         if (data.templates) {
           lastSyncStr.current.templates = JSON.stringify(data.templates);
           setTemplates(data.templates);
+        }
+        if (data.masterCardTemplate) {
+          lastSyncStr.current.masterCardTemplate = JSON.stringify(data.masterCardTemplate);
+          setMasterCardTemplate(data.masterCardTemplate);
         }
         if (data.rewardImageUrls !== undefined) {
           lastSyncStr.current.rewardImageUrls = data.rewardImageUrls;
@@ -228,13 +265,26 @@ function App() {
     }
   }, [archivedCycles, isFirebaseLoaded]);
 
+  useEffect(() => {
+    const currentStr = JSON.stringify(masterCardTemplate);
+    localStorage.setItem('masterCardTemplate', currentStr);
+    
+    if (isFirebaseLoaded && db && currentStr !== lastSyncStr.current.masterCardTemplate) {
+      lastSyncStr.current.masterCardTemplate = currentStr;
+      updateDoc(doc(db, 'appData', 'sharedState'), { masterCardTemplate }).catch((e) => {
+        if (e.code === 'not-found') setDoc(doc(db!, 'appData', 'sharedState'), { masterCardTemplate });
+        else console.error(e);
+      });
+    }
+  }, [masterCardTemplate, isFirebaseLoaded]);
+
   const [isArchiveListOpen, setIsArchiveListOpen] = useState(false);
   const [viewingArchivedCycle, setViewingArchivedCycle] = useState<{ cycleData: Record<string, any>, activeDate: string } | null>(null);
 
   const displayCards = viewingArchivedCycle ? viewingArchivedCycle.cycleData : cards;
   const currentActiveDate = viewingArchivedCycle ? viewingArchivedCycle.activeDate : activeDate;
 
-  // Derived state for the active tab
+  // Derived state for the active tab or master template
   const activeCard = displayCards[currentActiveDate] || {
     categories: defaultCategories,
     currentShift: '日勤',
@@ -247,18 +297,24 @@ function App() {
     appreciate: ''
   };
 
-  const categories: Category[] = activeCard.categories;
-  const currentShift: string = activeCard.currentShift;
-  const signature: string | null = activeCard.signature;
-  const rewardImage: string | null = activeCard.rewardImage;
-  const dayRating: number = activeCard.dayRating || 0;
-  const signOffNote: string = activeCard.signOffNote || '';
-  const newThings: string = activeCard.newThings || '';
-  const momentOfTheDay: string = activeCard.momentOfTheDay || '';
-  const appreciate: string = activeCard.appreciate || '';
+  const categories: Category[] = isEditingMasterTemplate ? masterCardTemplate : activeCard.categories;
+  const currentShift: string = isEditingMasterTemplate ? 'MASTER' : activeCard.currentShift;
+  const signature: string | null = isEditingMasterTemplate ? null : activeCard.signature;
+  const rewardImage: string | null = isEditingMasterTemplate ? null : activeCard.rewardImage;
+  const dayRating: number = isEditingMasterTemplate ? 0 : (activeCard.dayRating || 0);
+  const signOffNote: string = isEditingMasterTemplate ? '' : (activeCard.signOffNote || '');
+  const newThings: string = isEditingMasterTemplate ? '' : (activeCard.newThings || '');
+  const momentOfTheDay: string = isEditingMasterTemplate ? '' : (activeCard.momentOfTheDay || '');
+  const appreciate: string = isEditingMasterTemplate ? '' : (activeCard.appreciate || '');
 
   const setCategories = (newCats: any) => {
     if (viewingArchivedCycle) return;
+    if (isEditingMasterTemplate) {
+      setMasterCardTemplate(prev => {
+        return typeof newCats === 'function' ? newCats(prev) : newCats;
+      });
+      return;
+    }
     setCards(prev => {
       const card = prev[activeDate] || { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null };
       const resolved = typeof newCats === 'function' ? newCats(card.categories) : newCats;
@@ -376,14 +432,14 @@ function App() {
 
   useEffect(() => {
     // Auto-save to template when editing
-    if (isEditMode) {
+    if (isEditMode && !isEditingMasterTemplate) {
       const cleanCategories = categories.map(c => ({
         ...c,
         items: c.items.map(t => ({ ...t, isDone: false, isSkipped: false }))
       }));
       setTemplates(prev => ({ ...prev, [currentShift]: cleanCategories }));
     }
-  }, [categories, isEditMode, currentShift]);
+  }, [categories, isEditMode, currentShift, isEditingMasterTemplate]);
 
   const totalTasks = categories.reduce((sum, cat) => sum + cat.items.length, 0);
   const completedOrSkippedTasks = categories.reduce((sum, cat) => sum + cat.items.filter(t => t.isDone || t.isSkipped).length, 0);
@@ -600,7 +656,8 @@ function App() {
   };
 
   const loadShiftTemplate = (shift: string) => {
-    const template = templates[shift] || [];
+    const rawTemplate = (templates[shift] && templates[shift].length > 0) ? templates[shift] : masterCardTemplate;
+    const template = (rawTemplate && rawTemplate.length > 0) ? rawTemplate : defaultCategories;
     const cleanCategories = template.map(c => ({
       ...c,
       items: c.items.map(t => ({ ...t, isDone: false, isSkipped: false }))
@@ -674,6 +731,7 @@ function App() {
   const handleNavCard = () => {
     setIsArchiveListOpen(false);
     setIsSettingsModalOpen(false);
+    setIsEditingMasterTemplate(false);
     if (viewingArchivedCycle) {
       setViewingArchivedCycle(null);
     }
@@ -681,12 +739,58 @@ function App() {
 
   const handleNavArchive = () => {
     setIsSettingsModalOpen(false);
+    setIsEditingMasterTemplate(false);
     setIsArchiveListOpen(true);
   };
 
   const handleNavSettings = () => {
     setIsArchiveListOpen(false);
+    setSettingsTab('menu');
     setIsSettingsModalOpen(true);
+  };
+
+  const handleLoadFromMaster = () => {
+    if (!masterCardTemplate || masterCardTemplate.length === 0) {
+      alert("マスターカード（テンプレート）が空です。SETTINGS > MASTER HABITS CARD からテンプレートを作成してください。");
+      return;
+    }
+
+    const confirmMsg = `マスターカード（テンプレート）からタスク一覧を読み込みますか？\n\n※このカードの現在のタスク一覧はマスターの内容で上書きされます。\n※カードの「日付（${currentActiveDate}）」や「シフト（[${currentShift}]）」の情報は保持されます。`;
+    if (window.confirm(confirmMsg)) {
+      const clonedCategories: Category[] = masterCardTemplate.map(cat => ({
+        id: `cat-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        name: cat.name,
+        items: cat.items.map(item => ({
+          id: `task-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          task: item.task,
+          estimatedTime: item.estimatedTime,
+          isDone: false,
+          isSkipped: false
+        }))
+      }));
+
+      setCards(prev => {
+        const current = prev[activeDate] || {
+          categories: defaultCategories,
+          currentShift: '日勤',
+          signature: null,
+          rewardImage: null,
+          dayRating: 0,
+          signOffNote: '',
+          newThings: '',
+          momentOfTheDay: '',
+          appreciate: ''
+        };
+
+        return {
+          ...prev,
+          [activeDate]: {
+            ...current,
+            categories: clonedCategories
+          }
+        };
+      });
+    }
   };
 
   const addCategory = () => {
@@ -894,15 +998,33 @@ function App() {
     }
   };
 
+  const effectiveIsEditMode = isEditingMasterTemplate ? true : isEditMode;
+
   return (
-    <div className={`app-container ${isEditMode ? 'edit-mode' : 'execution-mode'} ${viewingArchivedCycle ? 'archive-mode' : ''}`}>
+    <div className={`app-container ${effectiveIsEditMode ? 'edit-mode' : 'execution-mode'} ${viewingArchivedCycle ? 'archive-mode' : ''} ${isEditingMasterTemplate ? 'master-edit-mode' : ''}`}>
+      {isEditingMasterTemplate && (
+        <div className="master-mode-banner">
+          <div className="master-mode-info">
+            <span className="master-mode-badge">[ MASTER CARD EDIT MODE ]</span>
+            <span className="master-mode-desc">全カードの基本ひな形（テンプレート）を編集中</span>
+          </div>
+          <button 
+            type="button"
+            className="master-mode-done-btn"
+            onClick={() => setIsEditingMasterTemplate(false)}
+          >
+            💾 完了して保存
+          </button>
+        </div>
+      )}
+
       {viewingArchivedCycle && (
         <div className="read-only-banner">
           <span>⚠️ アーカイブ閲覧中 (Read-Only)</span>
           <button onClick={() => setViewingArchivedCycle(null)}>閉じる</button>
         </div>
       )}
-      {Object.keys(displayCards).length > 1 && (
+      {!isEditingMasterTemplate && Object.keys(displayCards).length > 1 && (
         <div className="date-tabs">
           {Object.keys(displayCards).sort().map(dateStr => (
             <button 
@@ -942,25 +1064,29 @@ function App() {
           <div className="document-title">
             <div 
               className="card-title"
-              onTouchStart={handleTitleTouchStart}
-              onTouchEnd={handleTitleTouchEnd}
-              onTouchMove={handleTitleTouchEnd}
-              onMouseDown={handleTitleTouchStart}
-              onMouseUp={handleTitleTouchEnd}
-              onMouseLeave={handleTitleTouchEnd}
-              onContextMenu={handleTitleContextMenu}
-              style={{ cursor: 'pointer', userSelect: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
-              title="Long press or right-click to issue a new card"
+              onTouchStart={isEditingMasterTemplate ? undefined : handleTitleTouchStart}
+              onTouchEnd={isEditingMasterTemplate ? undefined : handleTitleTouchEnd}
+              onTouchMove={isEditingMasterTemplate ? undefined : handleTitleTouchEnd}
+              onMouseDown={isEditingMasterTemplate ? undefined : handleTitleTouchStart}
+              onMouseUp={isEditingMasterTemplate ? undefined : handleTitleTouchEnd}
+              onMouseLeave={isEditingMasterTemplate ? undefined : handleTitleTouchEnd}
+              onContextMenu={isEditingMasterTemplate ? (e) => e.preventDefault() : handleTitleContextMenu}
+              style={{ cursor: isEditingMasterTemplate ? 'default' : 'pointer', userSelect: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
+              title={isEditingMasterTemplate ? "MASTER HABITS CARD" : "Long press or right-click to issue a new card"}
             >
-              HABITS CARD
+              {isEditingMasterTemplate ? 'MASTER HABITS CARD' : 'HABITS CARD'}
             </div>
           </div>
           <div className="issue-date">
-            Issue date: {currentActiveDate} <span className="shift-badge">[{currentShift}]</span>
+            {isEditingMasterTemplate ? (
+              <span className="master-badge">TEMPLATE [MASTER]</span>
+            ) : (
+              <>Issue date: {currentActiveDate} <span className="shift-badge">[{currentShift}]</span></>
+            )}
           </div>
         </div>
         <div className="mode-toggle">
-          {!viewingArchivedCycle && (
+          {!viewingArchivedCycle && !isEditingMasterTemplate && (
             <>
               <span>{isEditMode ? 'Edit Mode' : 'Execution Mode'}</span>
               <label className="switch">
@@ -969,16 +1095,33 @@ function App() {
               </label>
             </>
           )}
+          {isEditingMasterTemplate && (
+            <span className="master-mode-status-pill">TEMPLATE EDIT</span>
+          )}
         </div>
       </div>
       <hr className="header-divider" />
 
+      {effectiveIsEditMode && !viewingArchivedCycle && !isEditingMasterTemplate && (
+        <div className="edit-mode-toolbar">
+          <button 
+            type="button"
+            className="load-master-btn" 
+            onClick={handleLoadFromMaster}
+            title="マスターカード（テンプレート）のタスク構成をこのカードに上書き読み込みします"
+          >
+            📋 LOAD FROM MASTER
+          </button>
+          <span className="load-master-hint">※マスターのタスク構成を読み込み（日付/シフト情報は保持）</span>
+        </div>
+      )}
+
       <DragDropContext onDragEnd={handleDragEnd}>
-        <Droppable droppableId="board" type="category" isDropDisabled={!isEditMode}>
+        <Droppable droppableId="board" type="category" isDropDisabled={!effectiveIsEditMode}>
           {(provided) => (
             <div ref={provided.innerRef} {...provided.droppableProps}>
               {categories.map((category, index) => (
-                <Draggable key={category.id} draggableId={category.id} index={index} isDragDisabled={!isEditMode}>
+                <Draggable key={category.id} draggableId={category.id} index={index} isDragDisabled={!effectiveIsEditMode}>
                   {(provided, snapshot) => (
                     <div 
                       ref={provided.innerRef} 
@@ -986,7 +1129,7 @@ function App() {
                       className={`table-container category-table ${snapshot.isDragging ? 'category-is-dragging' : ''}`}
                     >
                       <div className="table-header category-header-single">
-                        {isEditMode ? (
+                        {effectiveIsEditMode ? (
                           <div className="category-edit-wrapper">
                             <div 
                               className="drag-handle category-drag-handle" 
@@ -1039,7 +1182,7 @@ function App() {
                         )}
                       </div>
 
-                      <Droppable droppableId={category.id} type="task" isDropDisabled={!isEditMode}>
+                      <Droppable droppableId={category.id} type="task" isDropDisabled={!effectiveIsEditMode}>
               {(provided) => (
                 <div 
                   {...provided.droppableProps} 
@@ -1051,16 +1194,16 @@ function App() {
                       key={habit.id} 
                       draggableId={habit.id} 
                       index={index} 
-                      isDragDisabled={!isEditMode}
+                      isDragDisabled={!effectiveIsEditMode}
                     >
                       {(provided, snapshot) => (
                         <div
                           ref={provided.innerRef}
                           {...provided.draggableProps}
-                          className={`habit-row ${snapshot.isDragging ? 'is-dragging' : ''} ${habit.isSkipped && !isEditMode ? 'is-skipped' : ''}`}
+                          className={`habit-row ${snapshot.isDragging ? 'is-dragging' : ''} ${habit.isSkipped && !effectiveIsEditMode ? 'is-skipped' : ''}`}
                         >
                           <div className="task-cell">
-                            {isEditMode && (
+                            {effectiveIsEditMode && (
                               <div 
                                 className="drag-handle" 
                                 {...provided.dragHandleProps}
@@ -1070,7 +1213,7 @@ function App() {
                             )}
                             
                             <div className="task-content">
-                              {isEditMode ? (
+                              {effectiveIsEditMode ? (
                                 <>
                                   <input
                                     className="task-input"
@@ -1096,7 +1239,7 @@ function App() {
                           </div>
 
                           <div className="time-cell">
-                            {isEditMode ? (
+                            {effectiveIsEditMode ? (
                               <select
                                 className="time-input"
                                 value={habit.time || ''}
@@ -1113,7 +1256,7 @@ function App() {
                             )}
                           </div>
 
-                          {!isEditMode ? (
+                          {!effectiveIsEditMode ? (
                             <div 
                               className="done-cell" 
                               onClick={() => toggleDone(category.id, habit.id)}
@@ -1148,7 +1291,7 @@ function App() {
               )}
             </Droppable>
             
-                    {isEditMode && (
+                    {effectiveIsEditMode && (
                       <div className="add-row">
                         <button className="add-btn" onClick={() => addHabit(category.id)}>
                           ＋ Add Action Item
@@ -1165,7 +1308,7 @@ function App() {
         </Droppable>
       </DragDropContext>
 
-      {isEditMode && (
+      {effectiveIsEditMode && (
         <div className="add-category-wrapper">
           <button className="add-category-btn" onClick={addCategory}>
             ＋ Add Category
@@ -1173,141 +1316,170 @@ function App() {
         </div>
       )}
 
-      {/* SIGN-OFF NOTES Section */}
-      <div className="table-container sign-off-container" ref={signOffNotesRef}>
-        <div className="table-header category-header-single" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ padding: '0.75rem 1rem' }}>SIGN-OFF NOTES</span>
-          {!isEditMode && (
-            <button 
-              onClick={handleScreenshot}
-              style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', padding: '0.5rem 1rem' }}
-              title="Copy screenshot to clipboard"
-            >
-              📷
-            </button>
-          )}
-        </div>
-        <div className="sign-off-content">
-          <div className="rating-container">
-            <div className="stars-wrapper">
-              {[1, 2, 3, 4, 5].map(star => (
-                <StarIcon 
-                  key={star} 
-                  filled={dayRating >= star} 
-                  onClick={() => setDayRating(star)} 
-                />
-              ))}
-            </div>
-          </div>
-          
-          <div className="reflection-inputs">
-            <textarea
-              className="reflection-textarea"
-              rows={1}
-              placeholder="NEW THINGS"
-              value={newThings}
-              onChange={(e) => {
-                setNewThings(e.target.value);
-                e.target.style.height = 'auto';
-                e.target.style.height = `${e.target.scrollHeight}px`;
-              }}
-              ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px`; } }}
-            />
-            <textarea
-              className="reflection-textarea"
-              rows={1}
-              placeholder="MOMENT OF THE DAY"
-              value={momentOfTheDay}
-              onChange={(e) => {
-                setMomentOfTheDay(e.target.value);
-                e.target.style.height = 'auto';
-                e.target.style.height = `${e.target.scrollHeight}px`;
-              }}
-              ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px`; } }}
-            />
-            <textarea
-              className="reflection-textarea"
-              rows={1}
-              placeholder="APPRECIATE"
-              value={appreciate}
-              onChange={(e) => {
-                setAppreciate(e.target.value);
-                e.target.style.height = 'auto';
-                e.target.style.height = `${e.target.scrollHeight}px`;
-              }}
-              ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px`; } }}
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="table-container complete-check-container">
-        <div className="habit-row complete-check-row">
-          <div className="task-cell complete-check-task">
-            <span>Complete Check</span>
-          </div>
-
-          {!isEditMode ? (
-            <div 
-              className={`done-cell complete-check-done ${!isAllTasksCompleted ? 'disabled' : ''}`}
-              onClick={() => {
-                if (isAllTasksCompleted) {
-                  setIsSignatureModalOpen(true);
-                }
-              }}
-            >
-              {signature && <img src={signature} alt="Signature" className="signature-img" />}
-            </div>
-          ) : (
-            <div className="action-cell">
-              <span style={{ opacity: 0.5, fontSize: '1.2rem' }} title="System fixed item">🔒</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* MEMO Section */}
-      <div className="table-container memo-container" style={{ marginTop: '2rem' }}>
-        <div className="table-header category-header-single" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ padding: '0.75rem 1rem' }}>MEMO</span>
+      {isEditingMasterTemplate && (
+        <div style={{ marginTop: '1.5rem', marginBottom: '2.5rem', textAlign: 'center' }}>
           <button 
-            className="copy-memo-btn" 
-            onClick={async () => {
-              try {
-                await navigator.clipboard.writeText(signOffNote);
-              } catch (err) {
-                console.error('Failed to copy text: ', err);
-              }
-            }}
-            title="Copy Memo"
-            style={{ marginRight: '1rem', padding: '4px 8px' }}
+            type="button"
+            className="master-mode-bottom-done-btn"
+            onClick={() => setIsEditingMasterTemplate(false)}
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-            </svg>
+            💾 MASTER CARD を保存して終了
           </button>
         </div>
-        <div className="memo-content" style={{ display: 'flex', flexDirection: 'column', backgroundColor: '#fff', padding: '1rem' }}>
-          <textarea
-            className="sign-off-textarea"
-            placeholder=""
-            value={signOffNote}
-            onChange={(e) => {
-              setSignOffNote(e.target.value);
-              e.target.style.height = 'auto';
-              e.target.style.height = `${e.target.scrollHeight}px`;
-            }}
-            ref={(el) => {
-              if (el) {
-                el.style.height = 'auto';
-                el.style.height = `${el.scrollHeight}px`;
-              }
-            }}
-            style={{ border: 'none', padding: 0, minHeight: '150px' }}
-          />
-        </div>
-      </div>
+      )}
+
+      {!isEditingMasterTemplate && (
+        <>
+          {/* SIGN-OFF NOTES Section */}
+          <div className="table-container sign-off-container" ref={signOffNotesRef}>
+            <div className="table-header category-header-single" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ padding: '0.75rem 1rem' }}>SIGN-OFF NOTES</span>
+              {!effectiveIsEditMode && (
+                <button 
+                  onClick={handleScreenshot}
+                  style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', padding: '0.5rem 1rem' }}
+                  title="Copy screenshot to clipboard"
+                >
+                  📷
+                </button>
+              )}
+            </div>
+            <div className="sign-off-content">
+              <div className="rating-container">
+                <div className="stars-wrapper">
+                  {[1, 2, 3, 4, 5].map(star => (
+                    <StarIcon 
+                      key={star} 
+                      filled={dayRating >= star} 
+                      onClick={() => setDayRating(star)} 
+                    />
+                  ))}
+                </div>
+              </div>
+              
+              <div className="reflection-inputs">
+                <textarea
+                  className="reflection-textarea"
+                  rows={1}
+                  placeholder="NEW THINGS"
+                  value={newThings}
+                  onChange={(e) => {
+                    setNewThings(e.target.value);
+                    e.target.style.height = 'auto';
+                    e.target.style.height = `${e.target.scrollHeight}px`;
+                  }}
+                  ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px`; } }}
+                />
+                <textarea
+                  className="reflection-textarea"
+                  rows={1}
+                  placeholder="MOMENT OF THE DAY"
+                  value={momentOfTheDay}
+                  onChange={(e) => {
+                    setMomentOfTheDay(e.target.value);
+                    e.target.style.height = 'auto';
+                    e.target.style.height = `${e.target.scrollHeight}px`;
+                  }}
+                  ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px`; } }}
+                />
+                <textarea
+                  className="reflection-textarea"
+                  rows={1}
+                  placeholder="APPRECIATE"
+                  value={appreciate}
+                  onChange={(e) => {
+                    setAppreciate(e.target.value);
+                    e.target.style.height = 'auto';
+                    e.target.style.height = `${e.target.scrollHeight}px`;
+                  }}
+                  ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px`; } }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="table-container complete-check-container">
+            <div className="habit-row complete-check-row">
+              <div className="task-cell complete-check-task">
+                <span>Complete Check</span>
+              </div>
+
+              {!effectiveIsEditMode ? (
+                <div 
+                  className={`done-cell complete-check-done ${!isAllTasksCompleted ? 'disabled' : ''}`}
+                  onClick={() => {
+                    if (isAllTasksCompleted) {
+                      setIsSignatureModalOpen(true);
+                    }
+                  }}
+                >
+                  {signature && <img src={signature} alt="Signature" className="signature-img" />}
+                </div>
+              ) : (
+                <div className="action-cell">
+                  <span style={{ opacity: 0.5, fontSize: '1.2rem' }} title="System fixed item">🔒</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* MEMO Section */}
+          <div className="table-container memo-container" style={{ marginTop: '2rem' }}>
+            <div className="table-header category-header-single" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ padding: '0.75rem 1rem' }}>MEMO</span>
+              <button 
+                className="copy-memo-btn" 
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(signOffNote);
+                  } catch (err) {
+                    console.error('Failed to copy text: ', err);
+                  }
+                }}
+                title="Copy Memo"
+                style={{ marginRight: '1rem', padding: '4px 8px' }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+              </button>
+            </div>
+            <div className="memo-content" style={{ display: 'flex', flexDirection: 'column', backgroundColor: '#fff', padding: '1rem' }}>
+              <textarea
+                className="sign-off-textarea"
+                placeholder=""
+                value={signOffNote}
+                onChange={(e) => {
+                  setSignOffNote(e.target.value);
+                  e.target.style.height = 'auto';
+                  e.target.style.height = `${e.target.scrollHeight}px`;
+                }}
+                ref={(el) => {
+                  if (el) {
+                    el.style.height = 'auto';
+                    el.style.height = `${el.scrollHeight}px`;
+                  }
+                }}
+                style={{ border: 'none', padding: 0, minHeight: '150px' }}
+              />
+            </div>
+          </div>
+
+          {(rewardImage || isFetchingReward || rewardError) && (
+            <div className="reward-container">
+              <h3 className="reward-title">🎉 REWARD 🎉</h3>
+              {isFetchingReward ? (
+                <div className="reward-loading">Fetching your reward image...</div>
+              ) : rewardError ? (
+                <div className="reward-error">{rewardError}</div>
+              ) : (
+                <img src={rewardImage!} alt="Reward" className="reward-image" />
+              )}
+            </div>
+          )}
+        </>
+      )}
 
       {isSignatureModalOpen && (
         <div className="modal-overlay">
@@ -1353,51 +1525,89 @@ function App() {
       {isSettingsModalOpen && (
         <div className="modal-overlay" onClick={() => setIsSettingsModalOpen(false)}>
           <div className="modal-content settings-modal" onClick={e => e.stopPropagation()}>
-            <h3 className="modal-title">Reward Settings</h3>
-            <p className="settings-desc">ご褒美画像のURL（ウェブ上の画像リンク）を1行ずつ貼り付けてください。サイン完了時にランダムで1枚表示されます。</p>
-            
-            <div className="settings-field">
-              <label>Preview</label>
-              <div className="reward-preview-grid">
-                {rewardImageUrls.split('\n').map(u => u.trim()).filter(u => u !== '').map((url, i) => (
-                  <div 
-                    key={`${url}-${i}`} 
-                    className="reward-preview-item"
-                    onTouchStart={() => handleRewardTouchStart(url)}
-                    onTouchEnd={handleRewardTouchEnd}
-                    onMouseDown={() => handleRewardTouchStart(url)}
-                    onMouseUp={handleRewardTouchEnd}
-                    onMouseLeave={handleRewardTouchEnd}
-                  >
-                    <img src={url} alt={`preview-${i}`} className="reward-preview-img" />
-                  </div>
-                ))}
-              </div>
-              
-              <label>Image URLs</label>
-              <textarea 
-                value={rewardImageUrls} 
-                onChange={e => setRewardImageUrls(e.target.value)} 
-                placeholder="https://example.com/image1.jpg&#10;https://example.com/image2.png" 
-                rows={10}
-              />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <h3 className="modal-title" style={{ margin: 0 }}>SETTINGS</h3>
+              <button onClick={() => setIsSettingsModalOpen(false)} style={{ background: 'none', border: 'none', fontSize: '2rem', cursor: 'pointer', lineHeight: 1 }}>×</button>
             </div>
-            
-            <button className="done-btn" style={{marginTop: '1.5rem', width: '100%'}} onClick={() => setIsSettingsModalOpen(false)}>Save & Close</button>
-          </div>
-        </div>
-      )}
 
-      {(rewardImage || isFetchingReward || rewardError) && (
-        <div className="reward-container">
-          <h3 className="reward-title">🎉 REWARD 🎉</h3>
-          {isFetchingReward ? (
-            <div className="reward-loading">Fetching your reward image...</div>
-          ) : rewardError ? (
-            <div className="reward-error">{rewardError}</div>
-          ) : (
-            <img src={rewardImage!} alt="Reward" className="reward-image" />
-          )}
+            {settingsTab === 'menu' ? (
+              <div className="settings-menu-container">
+                <button 
+                  type="button"
+                  className="settings-menu-row"
+                  onClick={() => {
+                    setIsSettingsModalOpen(false);
+                    setIsEditingMasterTemplate(true);
+                  }}
+                >
+                  <div className="settings-menu-left">
+                    <span className="settings-menu-icon">📋</span>
+                    <div className="settings-menu-text">
+                      <div className="settings-menu-label">MASTER HABITS CARD</div>
+                      <div className="settings-menu-caption">大元となるマスターテンプレートの編集</div>
+                    </div>
+                  </div>
+                  <span className="settings-menu-arrow">▶</span>
+                </button>
+
+                <button 
+                  type="button"
+                  className="settings-menu-row"
+                  onClick={() => setSettingsTab('rewards')}
+                >
+                  <div className="settings-menu-left">
+                    <span className="settings-menu-icon">🎁</span>
+                    <div className="settings-menu-text">
+                      <div className="settings-menu-label">REWARD SETTINGS</div>
+                      <div className="settings-menu-caption">達成時ご褒美画像URLの設定・プレビュー</div>
+                    </div>
+                  </div>
+                  <span className="settings-menu-arrow">▶</span>
+                </button>
+              </div>
+            ) : (
+              <div className="settings-subview-container">
+                <button 
+                  type="button"
+                  className="settings-back-btn"
+                  onClick={() => setSettingsTab('menu')}
+                >
+                  ◀ 設定メニューに戻る
+                </button>
+                <h4 style={{ margin: '0.75rem 0 0.5rem', fontFamily: 'var(--font-mono)' }}>Reward Settings</h4>
+                <p className="settings-desc">ご褒美画像のURL（ウェブ上の画像リンク）を1行ずつ貼り付けてください。サイン完了時にランダムで1枚表示されます。</p>
+                
+                <div className="settings-field">
+                  <label>Preview</label>
+                  <div className="reward-preview-grid">
+                    {rewardImageUrls.split('\n').map(u => u.trim()).filter(u => u !== '').map((url, i) => (
+                      <div 
+                        key={`${url}-${i}`} 
+                        className="reward-preview-item"
+                        onTouchStart={() => handleRewardTouchStart(url)}
+                        onTouchEnd={handleRewardTouchEnd}
+                        onMouseDown={() => handleRewardTouchStart(url)}
+                        onMouseUp={handleRewardTouchEnd}
+                        onMouseLeave={handleRewardTouchEnd}
+                      >
+                        <img src={url} alt={`preview-${i}`} className="reward-preview-img" />
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <label>Image URLs</label>
+                  <textarea 
+                    value={rewardImageUrls} 
+                    onChange={e => setRewardImageUrls(e.target.value)} 
+                    placeholder="https://example.com/image1.jpg&#10;https://example.com/image2.png" 
+                    rows={8}
+                  />
+                </div>
+                
+                <button className="done-btn" style={{marginTop: '1.25rem', width: '100%'}} onClick={() => setIsSettingsModalOpen(false)}>Save & Close</button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -1444,7 +1654,7 @@ function App() {
       {/* Fixed Bottom Navigation */}
       <nav className="bottom-nav">
         <button 
-          className={`bottom-nav-item ${!isArchiveListOpen && !isSettingsModalOpen && !viewingArchivedCycle ? 'active' : ''}`}
+          className={`bottom-nav-item ${!isArchiveListOpen && !isSettingsModalOpen && !viewingArchivedCycle && !isEditingMasterTemplate ? 'active' : ''}`}
           onClick={handleNavCard}
           title="HABITS CARD"
         >
@@ -1460,7 +1670,7 @@ function App() {
           <span className="bottom-nav-label">ARCHIVE</span>
         </button>
         <button 
-          className={`bottom-nav-item ${isSettingsModalOpen ? 'active' : ''}`}
+          className={`bottom-nav-item ${isSettingsModalOpen || isEditingMasterTemplate ? 'active' : ''}`}
           onClick={handleNavSettings}
           title="Settings"
         >
