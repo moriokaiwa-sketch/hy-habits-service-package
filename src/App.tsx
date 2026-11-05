@@ -1,10 +1,76 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Component, ErrorInfo, ReactNode } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import SignatureCanvas from 'react-signature-canvas';
 import { db } from './firebase';
 import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import html2canvas from 'html2canvas';
 import './App.css';
+
+export class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean, error: Error | null }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '2rem', textAlign: 'center', fontFamily: 'monospace', maxWidth: '500px', margin: '2rem auto', border: '3px solid #1a1a1a', background: '#fff' }}>
+          <h2 style={{ color: '#d32f2f', margin: '0 0 1rem' }}>⚠️ エラーが発生しました</h2>
+          <p style={{ color: '#555', margin: '1rem 0', wordBreak: 'break-word', fontSize: '0.85rem' }}>
+            {this.state.error?.message || "予期しないエラーが発生しました"}
+          </p>
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginTop: '1.5rem' }}>
+            <button 
+              onClick={() => {
+                this.setState({ hasError: false, error: null });
+                window.location.reload();
+              }}
+              style={{
+                padding: '0.75rem 1.25rem',
+                backgroundColor: '#1a1a1a',
+                color: '#fff',
+                border: 'none',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              }}
+            >
+              🔄 再読み込み
+            </button>
+            <button 
+              onClick={() => {
+                if (window.confirm("キャッシュデータを初期化して復旧しますか？")) {
+                  localStorage.removeItem('cards');
+                  localStorage.removeItem('masterCardTemplate');
+                  window.location.reload();
+                }
+              }}
+              style={{
+                padding: '0.75rem 1.25rem',
+                backgroundColor: '#d32f2f',
+                color: '#fff',
+                border: 'none',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              }}
+            >
+              ⚠️ データ初期化
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const StarIcon = ({ filled, onClick }: { filled: boolean, onClick: () => void }) => (
   <svg 
@@ -49,6 +115,49 @@ const defaultHabits: Habit[] = [
 const defaultCategories: Category[] = [
   { id: "cat-general", name: "General", items: defaultHabits }
 ];
+
+function sanitizeCategories(raw: any): Category[] {
+  if (!raw) return defaultCategories;
+  
+  let list: any[] = [];
+  if (Array.isArray(raw)) {
+    list = raw;
+  } else if (typeof raw === 'object') {
+    list = Object.values(raw);
+  } else {
+    return defaultCategories;
+  }
+
+  if (list.length === 0) return defaultCategories;
+
+  return list.map((cat: any, cIdx: number) => {
+    const rawItems = Array.isArray(cat?.items) 
+      ? cat.items 
+      : (cat?.items && typeof cat.items === 'object' ? Object.values(cat.items) : []);
+
+    const sanitizedItems: Habit[] = rawItems.map((item: any, iIdx: number) => {
+      const estimatedTime = typeof item?.estimatedTime === 'number' 
+        ? item.estimatedTime 
+        : (item?.time ? parseInt(item.time, 10) || undefined : undefined);
+
+      return {
+        id: String(item?.id || `task-${Date.now()}-${cIdx}-${iIdx}`),
+        task: String(item?.task || item?.name || item?.habit || `タスク ${iIdx + 1}`),
+        description: item?.description ? String(item.description) : '',
+        time: item?.time ? String(item.time) : (estimatedTime ? String(estimatedTime) : ''),
+        estimatedTime: estimatedTime,
+        isDone: Boolean(item?.isDone),
+        isSkipped: Boolean(item?.isSkipped)
+      };
+    });
+
+    return {
+      id: String(cat?.id || `cat-${Date.now()}-${cIdx}`),
+      name: String(cat?.name || `カテゴリ ${cIdx + 1}`),
+      items: sanitizedItems
+    };
+  });
+}
 
 const SHIFTS = ["日勤", "遅番", "夜勤", "夜勤明け", "休日"];
 
@@ -139,7 +248,8 @@ function App() {
     const saved = localStorage.getItem('masterCardTemplate');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        return sanitizeCategories(parsed);
       } catch (e) {
         console.error(e);
       }
@@ -148,17 +258,8 @@ function App() {
     if (currentSaved) {
       try {
         const parsed = JSON.parse(currentSaved);
-        if (parsed['日勤'] && Array.isArray(parsed['日勤']) && parsed['日勤'].length > 0) {
-          return parsed['日勤'].map((c: any) => ({
-            ...c,
-            items: (c.items || []).map((t: any) => ({
-              id: t.id,
-              task: t.task,
-              estimatedTime: t.estimatedTime,
-              isDone: false,
-              isSkipped: false
-            }))
-          }));
+        if (parsed['日勤']) {
+          return sanitizeCategories(parsed['日勤']);
         }
       } catch (e) {}
     }
@@ -191,8 +292,9 @@ function App() {
           setTemplates(data.templates);
         }
         if (data.masterCardTemplate) {
-          lastSyncStr.current.masterCardTemplate = JSON.stringify(data.masterCardTemplate);
-          setMasterCardTemplate(data.masterCardTemplate);
+          const sanitizedMaster = sanitizeCategories(data.masterCardTemplate);
+          lastSyncStr.current.masterCardTemplate = JSON.stringify(sanitizedMaster);
+          setMasterCardTemplate(sanitizedMaster);
         }
         if (data.rewardImageUrls !== undefined) {
           lastSyncStr.current.rewardImageUrls = data.rewardImageUrls;
@@ -297,7 +399,9 @@ function App() {
     appreciate: ''
   };
 
-  const categories: Category[] = isEditingMasterTemplate ? masterCardTemplate : activeCard.categories;
+  const categories: Category[] = sanitizeCategories(
+    isEditingMasterTemplate ? masterCardTemplate : activeCard?.categories
+  );
   const currentShift: string = isEditingMasterTemplate ? 'MASTER' : activeCard.currentShift;
   const signature: string | null = isEditingMasterTemplate ? null : activeCard.signature;
   const rewardImage: string | null = isEditingMasterTemplate ? null : activeCard.rewardImage;
@@ -441,8 +545,8 @@ function App() {
     }
   }, [categories, isEditMode, currentShift, isEditingMasterTemplate]);
 
-  const totalTasks = categories.reduce((sum, cat) => sum + cat.items.length, 0);
-  const completedOrSkippedTasks = categories.reduce((sum, cat) => sum + cat.items.filter(t => t.isDone || t.isSkipped).length, 0);
+  const totalTasks = categories.reduce((sum, cat) => sum + (Array.isArray(cat?.items) ? cat.items.length : 0), 0);
+  const completedOrSkippedTasks = categories.reduce((sum, cat) => sum + (Array.isArray(cat?.items) ? cat.items.filter(t => t?.isDone || t?.isSkipped).length : 0), 0);
   const isAllTasksCompleted = totalTasks > 0 && totalTasks === completedOrSkippedTasks;
 
   useEffect(() => {
@@ -750,46 +854,58 @@ function App() {
   };
 
   const handleLoadFromMaster = () => {
-    if (!masterCardTemplate || masterCardTemplate.length === 0) {
-      alert("マスターカード（テンプレート）が空です。SETTINGS > MASTER HABITS CARD からテンプレートを作成してください。");
-      return;
-    }
+    try {
+      const safeTemplate = sanitizeCategories(masterCardTemplate);
+      if (!safeTemplate || safeTemplate.length === 0) {
+        alert("マスターカード（テンプレート）が空です。SETTINGS > MASTER HABITS CARD からテンプレートを作成してください。");
+        return;
+      }
 
-    const confirmMsg = `マスターカード（テンプレート）からタスク一覧を読み込みますか？\n\n※このカードの現在のタスク一覧はマスターの内容で上書きされます。\n※カードの「日付（${currentActiveDate}）」や「シフト（[${currentShift}]）」の情報は保持されます。`;
-    if (window.confirm(confirmMsg)) {
-      const clonedCategories: Category[] = masterCardTemplate.map(cat => ({
-        id: `cat-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-        name: cat.name,
-        items: cat.items.map(item => ({
-          id: `task-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-          task: item.task,
-          estimatedTime: item.estimatedTime,
-          isDone: false,
-          isSkipped: false
-        }))
-      }));
+      const targetDate = currentActiveDate || activeDate || getTodayDate();
+      const confirmMsg = `マスターカード（テンプレート）からタスク一覧を読み込みますか？\n\n※このカードの現在のタスク一覧はマスターの内容で上書きされます。\n※カードの「日付（${targetDate}）」や「シフト（[${currentShift}]）」の情報は保持されます。`;
+      
+      if (window.confirm(confirmMsg)) {
+        const clonedCategories: Category[] = safeTemplate.map((cat, cIdx) => ({
+          id: `cat-${Date.now()}-${cIdx}-${Math.random().toString(36).substring(2, 7)}`,
+          name: cat.name || `Category ${cIdx + 1}`,
+          items: (cat.items || []).map((item, iIdx) => ({
+            id: `task-${Date.now()}-${cIdx}-${iIdx}-${Math.random().toString(36).substring(2, 7)}`,
+            task: item.task || `Task ${iIdx + 1}`,
+            description: item.description || '',
+            time: item.time || (item.estimatedTime ? String(item.estimatedTime) : ''),
+            estimatedTime: item.estimatedTime,
+            isDone: false,
+            isSkipped: false
+          }))
+        }));
 
-      setCards(prev => {
-        const current = prev[activeDate] || {
-          categories: defaultCategories,
-          currentShift: '日勤',
-          signature: null,
-          rewardImage: null,
-          dayRating: 0,
-          signOffNote: '',
-          newThings: '',
-          momentOfTheDay: '',
-          appreciate: ''
-        };
+        setCards(prev => {
+          const current = (prev && prev[targetDate]) ? prev[targetDate] : {
+            categories: defaultCategories,
+            currentShift: currentShift || '日勤',
+            signature: null,
+            rewardImage: null,
+            dayRating: 0,
+            signOffNote: '',
+            newThings: '',
+            momentOfTheDay: '',
+            appreciate: ''
+          };
 
-        return {
-          ...prev,
-          [activeDate]: {
-            ...current,
-            categories: clonedCategories
-          }
-        };
-      });
+          return {
+            ...prev,
+            [targetDate]: {
+              ...current,
+              categories: clonedCategories
+            }
+          };
+        });
+
+        setActiveDate(targetDate);
+      }
+    } catch (err) {
+      console.error("Failed to load from master:", err);
+      alert("マスターカードの読み込み中にエラーが発生しました: " + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -1158,7 +1274,7 @@ function App() {
                             {(() => {
                               let total = 0;
                               let hasTimeTasks = false;
-                              category.items.forEach(habit => {
+                              (category.items || []).forEach(habit => {
                                 let timeVal = habit.estimatedTime;
                                 if (timeVal === undefined && habit.time) {
                                   const parsed = parseInt(habit.time, 10);
@@ -1189,7 +1305,7 @@ function App() {
                   ref={provided.innerRef}
                   className="droppable-container"
                 >
-                  {category.items.map((habit, index) => (
+                  {(category.items || []).map((habit, index) => (
                     <Draggable 
                       key={habit.id} 
                       draggableId={habit.id} 
