@@ -666,8 +666,27 @@ function App() {
       const today = getTodayDate();
       setSelectedIssueDate(today);
       setActiveDate(today);
+      setIsArchiveListOpen(false);
       setIsShiftModalOpen(true);
     }
+  };
+
+  const handleNavCard = () => {
+    setIsArchiveListOpen(false);
+    setIsSettingsModalOpen(false);
+    if (viewingArchivedCycle) {
+      setViewingArchivedCycle(null);
+    }
+  };
+
+  const handleNavArchive = () => {
+    setIsSettingsModalOpen(false);
+    setIsArchiveListOpen(true);
+  };
+
+  const handleNavSettings = () => {
+    setIsArchiveListOpen(false);
+    setIsSettingsModalOpen(true);
   };
 
   const addCategory = () => {
@@ -756,10 +775,21 @@ function App() {
     return (
       <div className="modal-overlay" onClick={() => setIsArchiveListOpen(false)}>
         <div className="modal-content archive-modal-content" onClick={e => e.stopPropagation()}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
             <h3 className="modal-title" style={{ margin: 0 }}>アーカイブ一覧</h3>
             <button onClick={() => setIsArchiveListOpen(false)} style={{ background: 'none', border: 'none', fontSize: '2rem', cursor: 'pointer', lineHeight: 1 }}>×</button>
           </div>
+          
+          {!viewingArchivedCycle && Object.keys(cards).length > 0 && (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <button 
+                className="action-btn-archive-cycle"
+                onClick={handleArchiveCycle}
+              >
+                <span>📁</span> 前サイクルをアーカイブして新カード発行
+              </button>
+            </div>
+          )}
           
           {Object.keys(groupedByMonth).length === 0 ? (
             <p>アーカイブされたサイクルはありません。</p>
@@ -939,9 +969,6 @@ function App() {
               </label>
             </>
           )}
-          <button className="settings-btn" onClick={() => setIsSettingsModalOpen(true)} title="Reward Settings" disabled={!!viewingArchivedCycle}>⚙️</button>
-          <button className="archive-list-btn" onClick={() => setIsArchiveListOpen(true)} title="View Archives" style={{ marginLeft: '0.5rem', background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>📚</button>
-          <button className="archive-btn" onClick={handleArchiveCycle} title="Archive Cycle" style={{ marginLeft: '0.5rem', background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }} disabled={!!viewingArchivedCycle}>📁</button>
         </div>
       </div>
       <hr className="header-divider" />
@@ -1413,6 +1440,34 @@ function App() {
       )}
 
       {renderArchiveModal()}
+
+      {/* Fixed Bottom Navigation */}
+      <nav className="bottom-nav">
+        <button 
+          className={`bottom-nav-item ${!isArchiveListOpen && !isSettingsModalOpen && !viewingArchivedCycle ? 'active' : ''}`}
+          onClick={handleNavCard}
+          title="HABITS CARD"
+        >
+          <span className="bottom-nav-icon">📋</span>
+          <span className="bottom-nav-label">CARD</span>
+        </button>
+        <button 
+          className={`bottom-nav-item ${isArchiveListOpen || !!viewingArchivedCycle ? 'active' : ''}`}
+          onClick={handleNavArchive}
+          title="Past Archives"
+        >
+          <span className="bottom-nav-icon">📁</span>
+          <span className="bottom-nav-label">ARCHIVE</span>
+        </button>
+        <button 
+          className={`bottom-nav-item ${isSettingsModalOpen ? 'active' : ''}`}
+          onClick={handleNavSettings}
+          title="Settings"
+        >
+          <span className="bottom-nav-icon">⚙️</span>
+          <span className="bottom-nav-label">SETTINGS</span>
+        </button>
+      </nav>
     </div>
   );
 }
