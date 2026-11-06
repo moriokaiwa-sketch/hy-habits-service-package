@@ -140,15 +140,20 @@ function sanitizeCategories(raw: any): Category[] {
         ? item.estimatedTime 
         : (item?.time ? parseInt(item.time, 10) || undefined : undefined);
 
-      return {
+      const habitObj: Habit = {
         id: String(item?.id || `task-${Date.now()}-${cIdx}-${iIdx}`),
         task: String(item?.task || item?.name || item?.habit || `タスク ${iIdx + 1}`),
         description: item?.description ? String(item.description) : '',
         time: item?.time ? String(item.time) : (estimatedTime ? String(estimatedTime) : ''),
-        estimatedTime: estimatedTime,
         isDone: Boolean(item?.isDone),
         isSkipped: Boolean(item?.isSkipped)
       };
+
+      if (estimatedTime !== undefined && !Number.isNaN(estimatedTime)) {
+        habitObj.estimatedTime = estimatedTime;
+      }
+
+      return habitObj;
     });
 
     return {
@@ -350,10 +355,15 @@ function App() {
     
     if (isFirebaseLoaded && db && currentStr !== lastSyncStr.current.cards) {
       lastSyncStr.current.cards = currentStr;
-      updateDoc(doc(db, 'appData', 'sharedState'), { cards }).catch((e) => {
-        if (e.code === 'not-found') setDoc(doc(db!, 'appData', 'sharedState'), { cards });
-        else console.error(e);
-      });
+      try {
+        const cleanPayload = JSON.parse(currentStr);
+        updateDoc(doc(db, 'appData', 'sharedState'), { cards: cleanPayload }).catch((e) => {
+          if (e.code === 'not-found') setDoc(doc(db!, 'appData', 'sharedState'), { cards: cleanPayload });
+          else console.error(e);
+        });
+      } catch (err) {
+        console.error("Firestore sync error for cards:", err);
+      }
     }
   }, [cards, isFirebaseLoaded]);
 
@@ -363,7 +373,12 @@ function App() {
     
     if (isFirebaseLoaded && db && currentStr !== lastSyncStr.current.archivedCycles) {
       lastSyncStr.current.archivedCycles = currentStr;
-      setDoc(doc(db, 'appData', 'sharedState'), { archivedCycles }, { merge: true }).catch(console.error);
+      try {
+        const cleanPayload = JSON.parse(currentStr);
+        setDoc(doc(db, 'appData', 'sharedState'), { archivedCycles: cleanPayload }, { merge: true }).catch(console.error);
+      } catch (err) {
+        console.error("Firestore sync error for archivedCycles:", err);
+      }
     }
   }, [archivedCycles, isFirebaseLoaded]);
 
@@ -373,10 +388,15 @@ function App() {
     
     if (isFirebaseLoaded && db && currentStr !== lastSyncStr.current.masterCardTemplate) {
       lastSyncStr.current.masterCardTemplate = currentStr;
-      updateDoc(doc(db, 'appData', 'sharedState'), { masterCardTemplate }).catch((e) => {
-        if (e.code === 'not-found') setDoc(doc(db!, 'appData', 'sharedState'), { masterCardTemplate });
-        else console.error(e);
-      });
+      try {
+        const cleanPayload = JSON.parse(currentStr);
+        updateDoc(doc(db, 'appData', 'sharedState'), { masterCardTemplate: cleanPayload }).catch((e) => {
+          if (e.code === 'not-found') setDoc(doc(db!, 'appData', 'sharedState'), { masterCardTemplate: cleanPayload });
+          else console.error(e);
+        });
+      } catch (err) {
+        console.error("Firestore sync error for masterCardTemplate:", err);
+      }
     }
   }, [masterCardTemplate, isFirebaseLoaded]);
 
@@ -527,10 +547,15 @@ function App() {
     
     if (isFirebaseLoaded && db && currentStr !== lastSyncStr.current.templates) {
       lastSyncStr.current.templates = currentStr;
-      updateDoc(doc(db, 'appData', 'sharedState'), { templates }).catch((e) => {
-        if (e.code === 'not-found') setDoc(doc(db!, 'appData', 'sharedState'), { templates });
-        else console.error(e);
-      });
+      try {
+        const cleanPayload = JSON.parse(currentStr);
+        updateDoc(doc(db, 'appData', 'sharedState'), { templates: cleanPayload }).catch((e) => {
+          if (e.code === 'not-found') setDoc(doc(db!, 'appData', 'sharedState'), { templates: cleanPayload });
+          else console.error(e);
+        });
+      } catch (err) {
+        console.error("Firestore sync error for templates:", err);
+      }
     }
   }, [templates, isFirebaseLoaded]);
 
@@ -868,15 +893,20 @@ function App() {
         const clonedCategories: Category[] = safeTemplate.map((cat, cIdx) => ({
           id: `cat-${Date.now()}-${cIdx}-${Math.random().toString(36).substring(2, 7)}`,
           name: cat.name || `Category ${cIdx + 1}`,
-          items: (cat.items || []).map((item, iIdx) => ({
-            id: `task-${Date.now()}-${cIdx}-${iIdx}-${Math.random().toString(36).substring(2, 7)}`,
-            task: item.task || `Task ${iIdx + 1}`,
-            description: item.description || '',
-            time: item.time || (item.estimatedTime ? String(item.estimatedTime) : ''),
-            estimatedTime: item.estimatedTime,
-            isDone: false,
-            isSkipped: false
-          }))
+          items: (cat.items || []).map((item, iIdx) => {
+            const taskObj: Habit = {
+              id: `task-${Date.now()}-${cIdx}-${iIdx}-${Math.random().toString(36).substring(2, 7)}`,
+              task: item.task || `Task ${iIdx + 1}`,
+              description: item.description || '',
+              time: item.time || (item.estimatedTime ? String(item.estimatedTime) : ''),
+              isDone: false,
+              isSkipped: false
+            };
+            if (typeof item.estimatedTime === 'number' && !Number.isNaN(item.estimatedTime)) {
+              taskObj.estimatedTime = item.estimatedTime;
+            }
+            return taskObj;
+          })
         }));
 
         setCards(prev => {
