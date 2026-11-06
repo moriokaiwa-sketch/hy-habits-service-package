@@ -1015,8 +1015,20 @@ function App() {
     const groupedByMonth: Record<string, Array<{ cycle: any, shiftIndex: number }>> = {};
     const cycleCountsByMonth: Record<string, number> = {};
 
-    archivedCycles.forEach((cycle: any) => {
-      const dates = Object.keys(cycle.cards).sort();
+    // 日付昇順（古い順）にソートして各月の通し番号（シフト1, 2...）を決定
+    const sortedCycles = [...archivedCycles].sort((a: any, b: any) => {
+      const getFirstDate = (c: any) => {
+        const dates = Object.keys(c.cards || {}).sort();
+        return dates[0] || '';
+      };
+      const dateA = getFirstDate(a);
+      const dateB = getFirstDate(b);
+      if (dateA && dateB) return dateA.localeCompare(dateB);
+      return (a.timestamp || 0) - (b.timestamp || 0);
+    });
+
+    sortedCycles.forEach((cycle: any) => {
+      const dates = Object.keys(cycle.cards || {}).sort();
       if (dates.length === 0) return;
       const firstDateStr = dates[0];
       const monthStr = firstDateStr.substring(0, 7); // e.g. "2026-06"
@@ -1060,8 +1072,8 @@ function App() {
               return (
                 <div key={monthStr} className="archive-month-group">
                   <div className="archive-month-title">{monthLabel}</div>
-                  {groupedByMonth[monthStr].map(({ cycle, shiftIndex }) => {
-                    const dates = Object.keys(cycle.cards).sort();
+                  {[...groupedByMonth[monthStr]].reverse().map(({ cycle, shiftIndex }) => {
+                    const dates = Object.keys(cycle.cards || {}).sort();
                     return (
                       <div key={cycle.cycleId} className="archive-shift-group">
                         <div className="archive-shift-header">シフト {shiftIndex}</div>
