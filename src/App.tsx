@@ -140,9 +140,18 @@ function sanitizeCategories(raw: any): Category[] {
         ? item.estimatedTime 
         : (item?.time ? parseInt(item.time, 10) || undefined : undefined);
 
+      let taskText = '';
+      if (item?.task !== undefined && item?.task !== null) {
+        taskText = String(item.task);
+      } else if (item?.name !== undefined && item?.name !== null) {
+        taskText = String(item.name);
+      } else if (item?.habit !== undefined && item?.habit !== null) {
+        taskText = String(item.habit);
+      }
+
       const habitObj: Habit = {
         id: String(item?.id || `task-${Date.now()}-${cIdx}-${iIdx}`),
-        task: String(item?.task || item?.name || item?.habit || `タスク ${iIdx + 1}`),
+        task: taskText,
         description: item?.description ? String(item.description) : '',
         time: item?.time ? String(item.time) : (estimatedTime ? String(estimatedTime) : ''),
         isDone: Boolean(item?.isDone),
@@ -158,7 +167,7 @@ function sanitizeCategories(raw: any): Category[] {
 
     return {
       id: String(cat?.id || `cat-${Date.now()}-${cIdx}`),
-      name: String(cat?.name || `カテゴリ ${cIdx + 1}`),
+      name: cat?.name !== undefined && cat?.name !== null ? String(cat.name) : '',
       items: sanitizedItems
     };
   });
@@ -892,11 +901,11 @@ function App() {
       if (window.confirm(confirmMsg)) {
         const clonedCategories: Category[] = safeTemplate.map((cat, cIdx) => ({
           id: `cat-${Date.now()}-${cIdx}-${Math.random().toString(36).substring(2, 7)}`,
-          name: cat.name || `Category ${cIdx + 1}`,
+          name: cat.name !== undefined && cat.name !== null ? String(cat.name) : '',
           items: (cat.items || []).map((item, iIdx) => {
             const taskObj: Habit = {
               id: `task-${Date.now()}-${cIdx}-${iIdx}-${Math.random().toString(36).substring(2, 7)}`,
-              task: item.task || `Task ${iIdx + 1}`,
+              task: item.task !== undefined && item.task !== null ? String(item.task) : '',
               description: item.description || '',
               time: item.time || (item.estimatedTime ? String(item.estimatedTime) : ''),
               isDone: false,
