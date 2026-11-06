@@ -1081,27 +1081,28 @@ input:checked + .slider:before {
 }
 
 .archive-shift-group {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
   display: flex;
   flex-direction: column;
-}
-
-.archive-shift-header {
-  font-size: 1.1rem;
-  font-weight: bold;
-  margin-bottom: 0.5rem;
+  width: 100%;
 }
 
 .archive-cards-row {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
+  flex-wrap: nowrap; /* どんなにボックスが増えても横1列で収める */
+  gap: 0.35rem;
   justify-content: center;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .archive-card-box {
-  width: 3.6rem;
-  height: 3.6rem;
+  flex: 1 1 0; /* ボックス数に応じて自動均等伸縮 */
+  min-width: 0; /* 縮小を許可 */
+  max-width: 4.2rem; /* 少数枚時の過剰拡大を防止 */
+  aspect-ratio: 1 / 1;
+  height: auto;
   border: 2px solid var(--text-color);
   background-color: var(--task-bg);
   display: flex;
@@ -1111,7 +1112,7 @@ input:checked + .slider:before {
   cursor: pointer;
   box-shadow: 2px 2px 0px rgba(0,0,0,0.1);
   transition: transform 0.1s;
-  padding: 0.2rem;
+  padding: 0.2rem 0.1rem;
   box-sizing: border-box;
 }
 
@@ -1134,18 +1135,20 @@ input:checked + .slider:before {
 
 .archive-card-date {
   font-weight: bold;
-  font-size: 1.1rem;
+  font-size: clamp(0.85rem, 3.6vw, 1.15rem);
   font-family: monospace;
+  line-height: 1.1;
 }
 
 .archive-card-shift {
-  font-size: 0.75rem;
+  font-size: clamp(0.55rem, 2.3vw, 0.75rem);
   color: #555;
-  margin-top: 0.25rem;
+  margin-top: 0.15rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
+  line-height: 1.1;
 }
 
 .read-only-banner {

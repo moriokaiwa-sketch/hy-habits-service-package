@@ -1072,11 +1072,10 @@ function App() {
               return (
                 <div key={monthStr} className="archive-month-group">
                   <div className="archive-month-title">{monthLabel}</div>
-                  {[...groupedByMonth[monthStr]].reverse().map(({ cycle, shiftIndex }) => {
+                  {[...groupedByMonth[monthStr]].reverse().map(({ cycle }) => {
                     const dates = Object.keys(cycle.cards || {}).sort();
                     return (
                       <div key={cycle.cycleId} className="archive-shift-group">
-                        <div className="archive-shift-header">シフト {shiftIndex}</div>
                         <div className="archive-cards-row">
                           {dates.map(dateStr => {
                             const c = cycle.cards[dateStr];
