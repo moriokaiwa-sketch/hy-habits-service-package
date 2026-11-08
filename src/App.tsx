@@ -2309,23 +2309,7 @@ function App() {
         <div className="modal-overlay" onClick={() => setIsShiftModalOpen(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <h3 className="modal-title">新しいCARDを発行</h3>
-            <p className="modal-subtitle">日付とシフトを選択してください</p>
-            
-            <div className="date-selector" style={{display: 'flex', gap: '5px', marginBottom: '20px', justifyContent: 'center'}}>
-              {[0, 1, 2, 3, 4].map(offset => {
-                const dStr = getDateString(offset);
-                return (
-                  <button 
-                    key={offset}
-                    className={`shift-btn ${selectedIssueDate === dStr ? 'active' : ''}`}
-                    onClick={() => setSelectedIssueDate(dStr)}
-                    style={{flex: 1, padding: '0.5rem 0', fontSize: '0.85rem'}}
-                  >
-                    {formatDateLabel(dStr)}
-                  </button>
-                );
-              })}
-            </div>
+            <p className="modal-subtitle">{formatDateLabel(selectedIssueDate)} のシフトを選択してください</p>
 
             <div className="shift-buttons">
               {SHIFTS.map(shift => (
