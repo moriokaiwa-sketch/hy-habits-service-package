@@ -1317,10 +1317,10 @@ function App() {
         <div className="header-top">
           <div className="title-area">
             <div className="document-title">
-              <div className="card-title" style={{ cursor: 'default' }}>MONTHLY INSPECTION</div>
+              <div className="card-title" style={{ cursor: 'default' }}>KPI  CARD</div>
             </div>
             <div className="issue-date">
-              Inspection Month: {currentMonthDisplay} <span className="shift-badge">[MONTHLY]</span>
+              {currentMonthDisplay}
             </div>
           </div>
           <div className="mode-toggle">
