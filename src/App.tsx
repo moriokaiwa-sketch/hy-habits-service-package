@@ -89,6 +89,36 @@ const StarIcon = ({ filled, onClick }: { filled: boolean, onClick: () => void })
   </svg>
 );
 
+interface MonthlyKpi {
+  id: string;
+  title: string;
+  type: 'check' | 'number' | 'text';
+  targetValue?: number;
+  currentValue: boolean | number | string;
+}
+
+const defaultMonthlyKpis: MonthlyKpi[] = [
+  {
+    id: 'kpi-default-1',
+    title: 'ジム・筋トレ（月12回）',
+    type: 'number',
+    targetValue: 12,
+    currentValue: 0
+  },
+  {
+    id: 'kpi-default-2',
+    title: '月次振り返り・次月目標設定',
+    type: 'check',
+    currentValue: false
+  },
+  {
+    id: 'kpi-default-3',
+    title: '読んだ本・インプット作品メモ',
+    type: 'text',
+    currentValue: ''
+  }
+];
+
 interface Habit {
   id: string;
   task: string;
@@ -280,10 +310,36 @@ function App() {
     return defaultCategories;
   });
 
+  const [monthlyKpis, setMonthlyKpis] = useState<MonthlyKpi[]>(() => {
+    const saved = localStorage.getItem('monthlyKpis');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return defaultMonthlyKpis;
+  });
+
+  const [isKpiView, setIsKpiView] = useState(false);
+  const [editingKpiId, setEditingKpiId] = useState<string | null>(null);
+  const [editKpiTitle, setEditKpiTitle] = useState('');
+  const [editKpiType, setEditKpiType] = useState<'check' | 'number' | 'text'>('number');
+  const [editKpiTarget, setEditKpiTarget] = useState<number>(10);
+
+  const [isAddingKpi, setIsAddingKpi] = useState(false);
+  const [newKpiTitle, setNewKpiTitle] = useState('');
+  const [newKpiType, setNewKpiType] = useState<'check' | 'number' | 'text'>('number');
+  const [newKpiTarget, setNewKpiTarget] = useState<number>(10);
+
   const [isEditingMasterTemplate, setIsEditingMasterTemplate] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'menu' | 'rewards'>('menu');
 
-  const lastSyncStr = useRef({ cards: '', templates: '', rewardImageUrls: '', archivedCycles: '', masterCardTemplate: '' });
+  const lastSyncStr = useRef({ cards: '', templates: '', rewardImageUrls: '', archivedCycles: '', masterCardTemplate: '', monthlyKpis: '' });
   const [isFirebaseLoaded, setIsFirebaseLoaded] = useState(false);
 
 
@@ -313,6 +369,10 @@ function App() {
         if (data.rewardImageUrls !== undefined) {
           lastSyncStr.current.rewardImageUrls = data.rewardImageUrls;
           setRewardImageUrls(data.rewardImageUrls);
+        }
+        if (data.monthlyKpis && Array.isArray(data.monthlyKpis)) {
+          lastSyncStr.current.monthlyKpis = JSON.stringify(data.monthlyKpis);
+          setMonthlyKpis(data.monthlyKpis);
         }
         if (data.archivedCycles) {
           setArchivedCycles(prev => {
@@ -408,6 +468,37 @@ function App() {
       }
     }
   }, [masterCardTemplate, isFirebaseLoaded]);
+
+  useEffect(() => {
+    const cleanKpis = monthlyKpis.map(kpi => {
+      const obj: any = {
+        id: String(kpi.id),
+        title: String(kpi.title || ''),
+        type: kpi.type,
+        currentValue: kpi.currentValue
+      };
+      if (kpi.type === 'number' && typeof kpi.targetValue === 'number' && !Number.isNaN(kpi.targetValue)) {
+        obj.targetValue = kpi.targetValue;
+      }
+      return obj;
+    });
+
+    const currentStr = JSON.stringify(cleanKpis);
+    localStorage.setItem('monthlyKpis', currentStr);
+    
+    if (isFirebaseLoaded && db && currentStr !== lastSyncStr.current.monthlyKpis) {
+      lastSyncStr.current.monthlyKpis = currentStr;
+      try {
+        const cleanPayload = JSON.parse(currentStr);
+        updateDoc(doc(db, 'appData', 'sharedState'), { monthlyKpis: cleanPayload }).catch((e) => {
+          if (e.code === 'not-found') setDoc(doc(db!, 'appData', 'sharedState'), { monthlyKpis: cleanPayload });
+          else console.error("Firestore sync error for monthlyKpis:", e);
+        });
+      } catch (err) {
+        console.error("Firestore serialization error for monthlyKpis:", err);
+      }
+    }
+  }, [monthlyKpis, isFirebaseLoaded]);
 
   const [isArchiveListOpen, setIsArchiveListOpen] = useState(false);
   const [viewingArchivedCycle, setViewingArchivedCycle] = useState<{ cycleData: Record<string, any>, activeDate: string } | null>(null);
@@ -867,6 +958,17 @@ function App() {
   };
 
   const handleNavCard = () => {
+    setIsKpiView(false);
+    setIsArchiveListOpen(false);
+    setIsSettingsModalOpen(false);
+    setIsEditingMasterTemplate(false);
+    if (viewingArchivedCycle) {
+      setViewingArchivedCycle(null);
+    }
+  };
+
+  const handleNavKpi = () => {
+    setIsKpiView(true);
     setIsArchiveListOpen(false);
     setIsSettingsModalOpen(false);
     setIsEditingMasterTemplate(false);
@@ -885,6 +987,100 @@ function App() {
     setIsArchiveListOpen(false);
     setSettingsTab('menu');
     setIsSettingsModalOpen(true);
+  };
+
+  // KPI Handlers
+  const handleAddKpi = () => {
+    if (!newKpiTitle.trim()) {
+      alert("KPIタイトルを入力してください");
+      return;
+    }
+    const newKpi: MonthlyKpi = {
+      id: `kpi-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      title: newKpiTitle.trim(),
+      type: newKpiType,
+      currentValue: newKpiType === 'check' ? false : newKpiType === 'number' ? 0 : '',
+      ...(newKpiType === 'number' ? { targetValue: Math.max(1, Number(newKpiTarget) || 1) } : {})
+    };
+    setMonthlyKpis(prev => [...prev, newKpi]);
+    setNewKpiTitle('');
+    setNewKpiType('number');
+    setNewKpiTarget(10);
+    setIsAddingKpi(false);
+  };
+
+  const handleStartEditKpi = (kpi: MonthlyKpi) => {
+    setEditingKpiId(kpi.id);
+    setEditKpiTitle(kpi.title);
+    setEditKpiType(kpi.type);
+    setEditKpiTarget(kpi.targetValue || 10);
+  };
+
+  const handleSaveEditKpi = (id: string) => {
+    if (!editKpiTitle.trim()) {
+      alert("KPIタイトルを入力してください");
+      return;
+    }
+    setMonthlyKpis(prev => prev.map(kpi => {
+      if (kpi.id === id) {
+        let newCurrentVal = kpi.currentValue;
+        if (kpi.type !== editKpiType) {
+          newCurrentVal = editKpiType === 'check' ? false : editKpiType === 'number' ? 0 : '';
+        }
+        const updated: MonthlyKpi = {
+          ...kpi,
+          title: editKpiTitle.trim(),
+          type: editKpiType,
+          currentValue: newCurrentVal
+        };
+        if (editKpiType === 'number') {
+          updated.targetValue = Math.max(1, Number(editKpiTarget) || 1);
+        } else {
+          delete updated.targetValue;
+        }
+        return updated;
+      }
+      return kpi;
+    }));
+    setEditingKpiId(null);
+  };
+
+  const handleDeleteKpi = (id: string, title: string) => {
+    if (window.confirm(`KPI「${title}」を削除しますか？`)) {
+      setMonthlyKpis(prev => prev.filter(kpi => kpi.id !== id));
+      if (editingKpiId === id) setEditingKpiId(null);
+    }
+  };
+
+  const handleToggleCheckKpi = (id: string) => {
+    if (isEditMode) return;
+    setMonthlyKpis(prev => prev.map(k => {
+      if (k.id === id) {
+        return { ...k, currentValue: !k.currentValue };
+      }
+      return k;
+    }));
+  };
+
+  const handleUpdateNumberKpi = (id: string, delta: number) => {
+    if (isEditMode) return;
+    setMonthlyKpis(prev => prev.map(k => {
+      if (k.id === id) {
+        const current = typeof k.currentValue === 'number' ? k.currentValue : 0;
+        const nextVal = Math.max(0, current + delta);
+        return { ...k, currentValue: nextVal };
+      }
+      return k;
+    }));
+  };
+
+  const handleTextKpiChange = (id: string, text: string) => {
+    setMonthlyKpis(prev => prev.map(k => {
+      if (k.id === id) {
+        return { ...k, currentValue: text };
+      }
+      return k;
+    }));
   };
 
   const handleLoadFromMaster = () => {
@@ -1108,6 +1304,322 @@ function App() {
     );
   };
 
+  const renderMonthlyKpiView = () => {
+    const now = new Date();
+    const currentMonthDisplay = `${now.getFullYear()}年${now.getMonth() + 1}月`;
+
+    return (
+      <div className="monthly-inspection-container">
+        {/* Industrial Header */}
+        <div className="header-top">
+          <div className="title-area">
+            <div className="document-title">
+              <div className="card-title" style={{ cursor: 'default' }}>MONTHLY INSPECTION</div>
+            </div>
+            <div className="issue-date">
+              Inspection Month: {currentMonthDisplay} <span className="shift-badge">[MONTHLY]</span>
+            </div>
+          </div>
+          <div className="mode-toggle">
+            <span>{isEditMode ? 'Edit Mode' : 'Execution Mode'}</span>
+            <label className="switch">
+              <input type="checkbox" checked={isEditMode} onChange={toggleMode} />
+              <span className="slider"></span>
+            </label>
+          </div>
+        </div>
+        <hr className="header-divider" />
+
+        {/* KPI Main Board */}
+        <div className="table-container kpi-board-container">
+          <div className="table-header category-header-single" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ padding: '0.75rem 1rem', letterSpacing: '0.05em' }}>MONTHLY ACTION KPIS</span>
+            <span style={{ padding: '0 1rem', fontSize: '0.75rem', color: '#ccc', fontFamily: 'monospace' }}>
+              ITEMS: {monthlyKpis.length}
+            </span>
+          </div>
+
+          <div className="kpi-items-list">
+            {monthlyKpis.map((kpi, index) => {
+              const isEditingThis = isEditMode && editingKpiId === kpi.id;
+
+              if (isEditingThis) {
+                return (
+                  <div key={kpi.id} className="kpi-edit-form-card">
+                    <div className="kpi-edit-form-header">
+                      <span className="kpi-edit-badge">EDIT KPI #{index + 1}</span>
+                    </div>
+                    <div className="kpi-form-body">
+                      <div className="kpi-form-field">
+                        <label className="kpi-form-label">TITLE / 項目名</label>
+                        <input 
+                          type="text" 
+                          className="kpi-form-input" 
+                          value={editKpiTitle} 
+                          onChange={e => setEditKpiTitle(e.target.value)}
+                          placeholder="例: ジム・運動 (月12回)"
+                          autoFocus
+                        />
+                      </div>
+                      <div className="kpi-form-row">
+                        <div className="kpi-form-field" style={{ flex: 1 }}>
+                          <label className="kpi-form-label">TYPE / 評価タイプ</label>
+                          <select 
+                            className="kpi-form-select"
+                            value={editKpiType}
+                            onChange={e => setEditKpiType(e.target.value as any)}
+                          >
+                            <option value="check">Check (済スタンプ)</option>
+                            <option value="number">Number (数値カウンター)</option>
+                            <option value="text">Text (複数行メモ)</option>
+                          </select>
+                        </div>
+                        {editKpiType === 'number' && (
+                          <div className="kpi-form-field" style={{ width: '110px' }}>
+                            <label className="kpi-form-label">TARGET / 目標値</label>
+                            <input 
+                              type="number" 
+                              min="1"
+                              className="kpi-form-input" 
+                              value={editKpiTarget}
+                              onChange={e => setEditKpiTarget(Math.max(1, parseInt(e.target.value) || 1))}
+                            />
+                          </div>
+                        )}
+                      </div>
+                      <div className="kpi-form-actions">
+                        <button 
+                          type="button" 
+                          className="kpi-btn-cancel" 
+                          onClick={() => setEditingKpiId(null)}
+                        >
+                          Cancel
+                        </button>
+                        <button 
+                          type="button" 
+                          className="kpi-btn-save" 
+                          onClick={() => handleSaveEditKpi(kpi.id)}
+                        >
+                          💾 保存
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <div key={kpi.id} className={`kpi-row-item kpi-type-${kpi.type} ${isEditMode ? 'in-edit-mode' : ''}`}>
+                  <div className="kpi-main-content">
+                    <div className="kpi-title-line">
+                      <span className="kpi-index-tag">{String(index + 1).padStart(2, '0')}</span>
+                      <span className="kpi-title-text">{kpi.title}</span>
+                      {isEditMode && (
+                        <span className="kpi-type-badge">{kpi.type.toUpperCase()}</span>
+                      )}
+                    </div>
+
+                    {!isEditMode && (
+                      <div className="kpi-interactive-area">
+                        {kpi.type === 'check' && (
+                          <div 
+                            className={`kpi-check-box ${kpi.currentValue ? 'checked' : ''}`}
+                            onClick={() => handleToggleCheckKpi(kpi.id)}
+                            title="タップで済スタンプを切り替え"
+                          >
+                            <span className="kpi-check-label">INSPECTION CHECK</span>
+                            <div className="kpi-stamp-wrapper">
+                              {kpi.currentValue && <div className="stamp">済</div>}
+                            </div>
+                          </div>
+                        )}
+
+                        {kpi.type === 'number' && (() => {
+                          const current = typeof kpi.currentValue === 'number' ? kpi.currentValue : 0;
+                          const target = kpi.targetValue || 1;
+                          const isCompleted = current >= target;
+                          const padLen = target >= 100 ? 3 : 2;
+                          const currentDisplay = String(current).padStart(padLen, '0');
+                          const targetDisplay = String(target).padStart(padLen, '0');
+
+                          return (
+                            <div className={`kpi-number-controller ${isCompleted ? 'is-completed' : ''}`}>
+                              <div className="kpi-counter-panel">
+                                <button 
+                                  type="button"
+                                  className="kpi-counter-btn minus"
+                                  onClick={() => handleUpdateNumberKpi(kpi.id, -1)}
+                                  disabled={current <= 0}
+                                  title="1減らす"
+                                >
+                                  −
+                                </button>
+                                <div 
+                                  className="kpi-counter-display"
+                                  onClick={() => handleUpdateNumberKpi(kpi.id, 1)}
+                                  title="タップで1増やす"
+                                >
+                                  <span className="counter-current">{currentDisplay}</span>
+                                  <span className="counter-separator">/</span>
+                                  <span className="counter-target">{targetDisplay}</span>
+                                </div>
+                                <button 
+                                  type="button"
+                                  className="kpi-counter-btn plus"
+                                  onClick={() => handleUpdateNumberKpi(kpi.id, 1)}
+                                  title="1増やす"
+                                >
+                                  +
+                                </button>
+                              </div>
+                              {isCompleted && (
+                                <div className="kpi-goal-badge">
+                                  ★ CLEAR
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+
+                        {kpi.type === 'text' && (
+                          <div className="kpi-text-area-wrapper">
+                            <textarea
+                              className="kpi-textarea"
+                              placeholder="読んだ本、観た映画、気付きなどを記録..."
+                              value={typeof kpi.currentValue === 'string' ? kpi.currentValue : ''}
+                              onChange={(e) => {
+                                handleTextKpiChange(kpi.id, e.target.value);
+                                e.target.style.height = 'auto';
+                                e.target.style.height = `${e.target.scrollHeight}px`;
+                              }}
+                              ref={(el) => {
+                                if (el) {
+                                  el.style.height = 'auto';
+                                  el.style.height = `${Math.max(60, el.scrollHeight)}px`;
+                                }
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {isEditMode && kpi.type === 'number' && (
+                      <div className="kpi-target-preview">
+                        Target: <strong>{kpi.targetValue || 0}</strong>
+                      </div>
+                    )}
+                  </div>
+
+                  {isEditMode && (
+                    <div className="kpi-action-buttons">
+                      <button 
+                        type="button"
+                        className="kpi-action-btn edit"
+                        onClick={() => handleStartEditKpi(kpi)}
+                        title="Edit KPI"
+                      >
+                        ⚙️
+                      </button>
+                      <button 
+                        type="button"
+                        className="kpi-action-btn delete"
+                        onClick={() => handleDeleteKpi(kpi.id, kpi.title)}
+                        title="Delete KPI"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {isEditMode && isAddingKpi && (
+              <div className="kpi-edit-form-card new-kpi-form">
+                <div className="kpi-edit-form-header">
+                  <span className="kpi-edit-badge">[ + NEW KPI ITEM ]</span>
+                </div>
+                <div className="kpi-form-body">
+                  <div className="kpi-form-field">
+                    <label className="kpi-form-label">TITLE / 項目名</label>
+                    <input 
+                      type="text" 
+                      className="kpi-form-input" 
+                      value={newKpiTitle} 
+                      onChange={e => setNewKpiTitle(e.target.value)}
+                      placeholder="例: ジム・運動 (月12回)"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="kpi-form-row">
+                    <div className="kpi-form-field" style={{ flex: 1 }}>
+                      <label className="kpi-form-label">TYPE / 評価タイプ</label>
+                      <select 
+                        className="kpi-form-select"
+                        value={newKpiType}
+                        onChange={e => setNewKpiType(e.target.value as any)}
+                      >
+                        <option value="check">Check (済スタンプ)</option>
+                        <option value="number">Number (数値カウンター)</option>
+                        <option value="text">Text (複数行メモ)</option>
+                      </select>
+                    </div>
+                    {newKpiType === 'number' && (
+                      <div className="kpi-form-field" style={{ width: '110px' }}>
+                        <label className="kpi-form-label">TARGET / 目標値</label>
+                        <input 
+                          type="number" 
+                          min="1"
+                          className="kpi-form-input" 
+                          value={newKpiTarget}
+                          onChange={e => setNewKpiTarget(Math.max(1, parseInt(e.target.value) || 1))}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <div className="kpi-form-actions">
+                    <button 
+                      type="button" 
+                      className="kpi-btn-cancel" 
+                      onClick={() => setIsAddingKpi(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="button" 
+                      className="kpi-btn-save" 
+                      onClick={handleAddKpi}
+                    >
+                      + 追加する
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {isEditMode && !isAddingKpi && (
+              <div className="kpi-add-button-row">
+                <button 
+                  type="button" 
+                  className="kpi-add-new-btn"
+                  onClick={() => {
+                    setNewKpiTitle('');
+                    setNewKpiType('number');
+                    setNewKpiTarget(10);
+                    setIsAddingKpi(true);
+                  }}
+                >
+                  + ADD NEW KPI
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const signOffNotesRef = useRef<HTMLDivElement>(null);
 
   const handleScreenshot = async () => {
@@ -1168,7 +1680,11 @@ function App() {
 
   return (
     <div className={`app-container ${effectiveIsEditMode ? 'edit-mode' : 'execution-mode'} ${viewingArchivedCycle ? 'archive-mode' : ''} ${isEditingMasterTemplate ? 'master-edit-mode' : ''}`}>
-      {isEditingMasterTemplate && (
+      {isKpiView ? (
+        renderMonthlyKpiView()
+      ) : (
+        <>
+          {isEditingMasterTemplate && (
         <div className="master-mode-banner">
           <div className="master-mode-info">
             <span className="master-mode-badge">[ MASTER CARD EDIT MODE ]</span>
@@ -1646,6 +2162,8 @@ function App() {
           )}
         </>
       )}
+        </>
+      )}
 
       {isSignatureModalOpen && (
         <div className="modal-overlay">
@@ -1820,12 +2338,20 @@ function App() {
       {/* Fixed Bottom Navigation */}
       <nav className="bottom-nav">
         <button 
-          className={`bottom-nav-item ${!isArchiveListOpen && !isSettingsModalOpen && !viewingArchivedCycle && !isEditingMasterTemplate ? 'active' : ''}`}
+          className={`bottom-nav-item ${!isKpiView && !isArchiveListOpen && !isSettingsModalOpen && !viewingArchivedCycle && !isEditingMasterTemplate ? 'active' : ''}`}
           onClick={handleNavCard}
           title="HABITS CARD"
         >
           <span className="bottom-nav-icon">📋</span>
           <span className="bottom-nav-label">CARD</span>
+        </button>
+        <button 
+          className={`bottom-nav-item ${isKpiView && !isArchiveListOpen && !isSettingsModalOpen && !viewingArchivedCycle && !isEditingMasterTemplate ? 'active' : ''}`}
+          onClick={handleNavKpi}
+          title="MONTHLY INSPECTION"
+        >
+          <span className="bottom-nav-icon">📊</span>
+          <span className="bottom-nav-label">KPI</span>
         </button>
         <button 
           className={`bottom-nav-item ${isArchiveListOpen || !!viewingArchivedCycle ? 'active' : ''}`}
