@@ -329,12 +329,12 @@ function App() {
   const [editingKpiId, setEditingKpiId] = useState<string | null>(null);
   const [editKpiTitle, setEditKpiTitle] = useState('');
   const [editKpiType, setEditKpiType] = useState<'check' | 'number' | 'text'>('number');
-  const [editKpiTarget, setEditKpiTarget] = useState<number>(10);
+  const [editKpiTarget, setEditKpiTarget] = useState<number | string>(10);
 
   const [isAddingKpi, setIsAddingKpi] = useState(false);
   const [newKpiTitle, setNewKpiTitle] = useState('');
   const [newKpiType, setNewKpiType] = useState<'check' | 'number' | 'text'>('number');
-  const [newKpiTarget, setNewKpiTarget] = useState<number>(10);
+  const [newKpiTarget, setNewKpiTarget] = useState<number | string>(10);
 
   const [isEditingMasterTemplate, setIsEditingMasterTemplate] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'menu' | 'rewards'>('menu');
@@ -995,12 +995,14 @@ function App() {
       alert("KPIタイトルを入力してください");
       return;
     }
+    const parsedTarget = typeof newKpiTarget === 'number' ? newKpiTarget : parseInt(newKpiTarget, 10);
+    const targetValue = !isNaN(parsedTarget) && parsedTarget > 0 ? parsedTarget : 1;
     const newKpi: MonthlyKpi = {
       id: `kpi-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       title: newKpiTitle.trim(),
       type: newKpiType,
       currentValue: newKpiType === 'check' ? false : newKpiType === 'number' ? 0 : '',
-      ...(newKpiType === 'number' ? { targetValue: Math.max(1, Number(newKpiTarget) || 1) } : {})
+      ...(newKpiType === 'number' ? { targetValue } : {})
     };
     setMonthlyKpis(prev => [...prev, newKpi]);
     setNewKpiTitle('');
@@ -1013,7 +1015,7 @@ function App() {
     setEditingKpiId(kpi.id);
     setEditKpiTitle(kpi.title);
     setEditKpiType(kpi.type);
-    setEditKpiTarget(kpi.targetValue || 10);
+    setEditKpiTarget(kpi.targetValue !== undefined ? kpi.targetValue : 10);
   };
 
   const handleSaveEditKpi = (id: string) => {
@@ -1034,7 +1036,8 @@ function App() {
           currentValue: newCurrentVal
         };
         if (editKpiType === 'number') {
-          updated.targetValue = Math.max(1, Number(editKpiTarget) || 1);
+          const parsedTarget = typeof editKpiTarget === 'number' ? editKpiTarget : parseInt(editKpiTarget, 10);
+          updated.targetValue = !isNaN(parsedTarget) && parsedTarget > 0 ? parsedTarget : 1;
         } else {
           delete updated.targetValue;
         }
@@ -1378,11 +1381,18 @@ function App() {
                           <div className="kpi-form-field" style={{ width: '110px' }}>
                             <label className="kpi-form-label">TARGET / 目標値</label>
                             <input 
-                              type="number" 
-                              min="1"
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
                               className="kpi-form-input" 
                               value={editKpiTarget}
-                              onChange={e => setEditKpiTarget(Math.max(1, parseInt(e.target.value) || 1))}
+                              onChange={e => {
+                                const val = e.target.value;
+                                if (val === '' || /^\d+$/.test(val)) {
+                                  setEditKpiTarget(val);
+                                }
+                              }}
+                              placeholder="目標値"
                             />
                           </div>
                         )}
@@ -1569,11 +1579,18 @@ function App() {
                       <div className="kpi-form-field" style={{ width: '110px' }}>
                         <label className="kpi-form-label">TARGET / 目標値</label>
                         <input 
-                          type="number" 
-                          min="1"
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
                           className="kpi-form-input" 
                           value={newKpiTarget}
-                          onChange={e => setNewKpiTarget(Math.max(1, parseInt(e.target.value) || 1))}
+                          onChange={e => {
+                            const val = e.target.value;
+                            if (val === '' || /^\d+$/.test(val)) {
+                              setNewKpiTarget(val);
+                            }
+                          }}
+                          placeholder="目標値"
                         />
                       </div>
                     )}
