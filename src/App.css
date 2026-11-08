@@ -1158,12 +1158,58 @@ input:checked + .slider:before {
   transform: translateY(0);
 }
 
-.archive-card-box.completed-day {
-  background-color: #d4edda;
-  border-color: #28a745;
+/* Shift Border Colors (2px solid muted industrial tones) */
+.archive-card-box.shift-border-nikkin {
+  border-color: #B73225; /* くすんだ赤 (日勤) */
 }
-.archive-card-box.completed-day:hover {
-  background-color: #c3e6cb;
+
+.archive-card-box.shift-border-osoban {
+  border-color: #D97736; /* 落ち着いたオレンジ (遅番) */
+}
+
+.archive-card-box.shift-border-yakin {
+  border-color: #2B5278; /* 深みのある青 (夜勤) */
+}
+
+.archive-card-box.shift-border-ake,
+.archive-card-box.shift-border-kyujitsu {
+  border-color: #1B4324; /* 深いダークグリーン (夜勤明け & 休日) */
+}
+
+/* Completion Rate Heatmap Background (5 Levels Muted Green) */
+.archive-card-box.heat-0 {
+  background-color: var(--task-bg, #fdfdfd);
+}
+.archive-card-box.heat-0:hover {
+  background-color: #f0f0f0;
+}
+
+.archive-card-box.heat-1 {
+  background-color: #e5ede6; /* 淡いくすみグリーン (1%〜34%) */
+}
+.archive-card-box.heat-1:hover {
+  background-color: #d7e4d8;
+}
+
+.archive-card-box.heat-2 {
+  background-color: #bedbbe; /* 薄いくすみグリーン (35%〜69%) */
+}
+.archive-card-box.heat-2:hover {
+  background-color: #add1ad;
+}
+
+.archive-card-box.heat-3 {
+  background-color: #92c496; /* 中間のくすみグリーン (70%〜99%) */
+}
+.archive-card-box.heat-3:hover {
+  background-color: #80b884;
+}
+
+.archive-card-box.heat-4 {
+  background-color: #63a367; /* 濃いくすみグリーン (100% 達成) */
+}
+.archive-card-box.heat-4:hover {
+  background-color: #539457;
 }
 
 .archive-card-date {

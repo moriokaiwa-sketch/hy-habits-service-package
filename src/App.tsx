@@ -1222,6 +1222,41 @@ function App() {
       });
     });
 
+    const getShiftBorderClass = (shift: string) => {
+      if (!shift) return '';
+      if (shift.includes('日勤')) return 'shift-border-nikkin';
+      if (shift.includes('遅番')) return 'shift-border-osoban';
+      if (shift.includes('夜勤明け') || shift.includes('明け')) return 'shift-border-ake';
+      if (shift.includes('夜勤')) return 'shift-border-yakin';
+      if (shift.includes('休')) return 'shift-border-kyujitsu';
+      return '';
+    };
+
+    const getHeatClass = (card: any) => {
+      if (!card) return 'heat-0';
+      let total = 0;
+      let done = 0;
+      (card.categories || []).forEach((cat: any) => {
+        (cat?.items || []).forEach((item: any) => {
+          total++;
+          if (item?.isDone || item?.isSkipped) {
+            done++;
+          }
+        });
+      });
+
+      if (total === 0) {
+        return card.signature ? 'heat-4' : 'heat-0';
+      }
+
+      const rate = done / total;
+      if (rate <= 0) return 'heat-0';
+      if (rate < 0.35) return 'heat-1';
+      if (rate < 0.70) return 'heat-2';
+      if (rate < 1.0) return 'heat-3';
+      return 'heat-4';
+    };
+
     return (
       <div className="modal-overlay" onClick={() => setIsArchiveListOpen(false)}>
         <div className="modal-content archive-modal-content" onClick={e => e.stopPropagation()}>
@@ -1259,10 +1294,12 @@ function App() {
                           {dates.map(dateStr => {
                             const c = cycle.cards[dateStr];
                             const dayNum = parseInt(dateStr.split('-')[2], 10);
+                            const shiftBorderClass = getShiftBorderClass(c?.currentShift || '');
+                            const heatClass = getHeatClass(c);
                             return (
                               <div 
                                 key={dateStr} 
-                                className={`archive-card-box ${c.signature ? 'completed-day' : ''}`}
+                                className={`archive-card-box ${shiftBorderClass} ${heatClass}`}
                                 onClick={() => {
                                   setViewingArchivedCycle({ cycleData: cycle.cards, activeDate: dateStr });
                                   setIsArchiveListOpen(false);
