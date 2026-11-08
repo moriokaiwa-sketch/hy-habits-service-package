@@ -860,28 +860,8 @@ function App() {
     }
   };
 
-  const titlePressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const openShiftModal = () => {
     setIsShiftModalOpen(true);
-  };
-
-  const handleTitleTouchStart = () => {
-    titlePressTimer.current = setTimeout(() => {
-      openShiftModal();
-    }, 800);
-  };
-
-  const handleTitleTouchEnd = () => {
-    if (titlePressTimer.current) {
-      clearTimeout(titlePressTimer.current);
-      titlePressTimer.current = null;
-    }
-  };
-
-  const handleTitleContextMenu = (e: React.MouseEvent) => {
-    e.preventDefault();
-    openShiftModal();
   };
 
   const loadShiftTemplate = (shift: string) => {
@@ -1721,7 +1701,7 @@ function App() {
           <button onClick={() => setViewingArchivedCycle(null)}>閉じる</button>
         </div>
       )}
-      {!isEditingMasterTemplate && Object.keys(displayCards).length > 1 && (
+      {!isEditingMasterTemplate && Object.keys(displayCards).length > 0 && (
         <div className="date-tabs">
           {Object.keys(displayCards).sort().map(dateStr => (
             <button 
@@ -1754,6 +1734,29 @@ function App() {
               {formatDateLabel(dateStr)}
             </button>
           ))}
+
+          {!viewingArchivedCycle && (
+            <button 
+              type="button"
+              className="date-tab-add-btn"
+              onClick={() => {
+                const sortedDates = Object.keys(cards).sort();
+                if (sortedDates.length > 0) {
+                  const latest = sortedDates[sortedDates.length - 1];
+                  const [y, m, d] = latest.split('-').map(Number);
+                  const nextDate = new Date(y, m - 1, d + 1);
+                  const nextDateStr = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}-${String(nextDate.getDate()).padStart(2, '0')}`;
+                  setSelectedIssueDate(nextDateStr);
+                } else {
+                  setSelectedIssueDate(getTodayDate());
+                }
+                openShiftModal();
+              }}
+              title="新しいCARDを発行"
+            >
+              +
+            </button>
+          )}
         </div>
       )}
       <div className="header-top">
@@ -1761,15 +1764,7 @@ function App() {
           <div className="document-title">
             <div 
               className="card-title"
-              onTouchStart={isEditingMasterTemplate ? undefined : handleTitleTouchStart}
-              onTouchEnd={isEditingMasterTemplate ? undefined : handleTitleTouchEnd}
-              onTouchMove={isEditingMasterTemplate ? undefined : handleTitleTouchEnd}
-              onMouseDown={isEditingMasterTemplate ? undefined : handleTitleTouchStart}
-              onMouseUp={isEditingMasterTemplate ? undefined : handleTitleTouchEnd}
-              onMouseLeave={isEditingMasterTemplate ? undefined : handleTitleTouchEnd}
-              onContextMenu={isEditingMasterTemplate ? (e) => e.preventDefault() : handleTitleContextMenu}
-              style={{ cursor: isEditingMasterTemplate ? 'default' : 'pointer', userSelect: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
-              title={isEditingMasterTemplate ? "MASTER HABITS CARD" : "Long press or right-click to issue a new card"}
+              style={{ cursor: 'default', userSelect: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
             >
               {isEditingMasterTemplate ? 'MASTER HABITS CARD' : 'HABITS CARD'}
             </div>

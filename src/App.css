@@ -136,6 +136,39 @@
   color: var(--bg-color);
 }
 
+.date-tab-add-btn {
+  flex: 0 0 2.6rem;
+  width: 2.6rem;
+  padding: 0.5rem 0;
+  border: 2px solid var(--text-color);
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-family: inherit;
+  font-weight: bold;
+  font-size: 1.2rem;
+  line-height: 1;
+  border-radius: 8px 8px 0 0;
+  cursor: pointer;
+  border-bottom: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  opacity: 0.85;
+}
+
+.date-tab-add-btn:hover {
+  opacity: 1;
+  background: var(--text-color);
+  color: var(--bg-color);
+}
+
+.date-tab-add-btn:active {
+  transform: translateY(1px);
+}
+
 .mode-toggle {
   display: flex;
   align-items: center;
