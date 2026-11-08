@@ -1340,7 +1340,6 @@ function App() {
                                 }}
                               >
                                 <div className="archive-card-date">{dayNum}</div>
-                                <div className={`archive-card-shift ${shiftClass}`}>{formatShift(c?.currentShift || '')}</div>
                               </div>
                             );
                           })}

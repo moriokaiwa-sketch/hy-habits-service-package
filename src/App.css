@@ -1180,31 +1180,26 @@ input:checked + .slider:before {
   transform: translateY(0);
 }
 
-/* Shift Text Colors (Industrial Muted Colors for Shift Labels) */
-.archive-card-shift.shift-D,
-.archive-card-box.shift-D .archive-card-shift,
-.archive-card-box.shift-nikkin .archive-card-shift {
+/* Date Number Shift Colors (Industrial Muted Colors) */
+.archive-card-box.shift-D .archive-card-date,
+.archive-card-box.shift-nikkin .archive-card-date {
   color: #B73225; /* くすんだ赤 (D / 日勤) */
 }
 
-.archive-card-shift.shift-S,
-.archive-card-box.shift-S .archive-card-shift,
-.archive-card-box.shift-osoban .archive-card-shift {
+.archive-card-box.shift-S .archive-card-date,
+.archive-card-box.shift-osoban .archive-card-date {
   color: #D97736; /* 落ち着いたオレンジ (S / 遅番) */
 }
 
-.archive-card-shift.shift-N,
-.archive-card-box.shift-N .archive-card-shift,
-.archive-card-box.shift-yakin .archive-card-shift {
+.archive-card-box.shift-N .archive-card-date,
+.archive-card-box.shift-yakin .archive-card-date {
   color: #2B5278; /* 深みのある青 (N / 夜勤) */
 }
 
-.archive-card-shift.shift-slash,
-.archive-card-shift.shift-H,
-.archive-card-box.shift-slash .archive-card-shift,
-.archive-card-box.shift-H .archive-card-shift,
-.archive-card-box.shift-ake .archive-card-shift,
-.archive-card-box.shift-kyujitsu .archive-card-shift {
+.archive-card-box.shift-slash .archive-card-date,
+.archive-card-box.shift-H .archive-card-date,
+.archive-card-box.shift-ake .archive-card-date,
+.archive-card-box.shift-kyujitsu .archive-card-date {
   color: #1B4324; /* 深いダークグリーン (/ / 夜勤明け & H / 休日) */
 }
 
@@ -1246,24 +1241,10 @@ input:checked + .slider:before {
 
 .archive-card-date {
   font-weight: 800;
-  font-size: clamp(0.9rem, 3.8vw, 1.25rem);
+  font-size: clamp(1.15rem, 4.6vw, 1.45rem);
   font-family: monospace;
-  line-height: 1.1;
-  color: var(--text-color, #1a1a1a);
+  line-height: 1;
   text-shadow: 0 0 1px rgba(255, 255, 255, 0.4);
-}
-
-.archive-card-shift {
-  font-size: clamp(0.75rem, 3vw, 1rem);
-  font-family: var(--font-mono, monospace);
-  font-weight: 900;
-  margin-top: 0.15rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-  line-height: 1.1;
-  letter-spacing: 0.05em;
 }
 
 .read-only-banner {
