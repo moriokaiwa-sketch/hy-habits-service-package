@@ -203,7 +203,28 @@ function sanitizeCategories(raw: any): Category[] {
   });
 }
 
-const SHIFTS = ["日勤", "遅番", "夜勤", "夜勤明け", "休日"];
+const SHIFTS = ["D", "S", "N", "/", "H"];
+
+const formatShift = (shift: string): string => {
+  if (!shift) return '';
+  const s = String(shift).trim();
+  if (s === 'D' || s.includes('日勤')) return 'D';
+  if (s === 'S' || s.includes('遅番')) return 'S';
+  if (s === '/' || s.includes('夜勤明け') || s.includes('明け')) return '/';
+  if (s === 'N' || s.includes('夜勤')) return 'N';
+  if (s === 'H' || s.includes('休日') || s.includes('休')) return 'H';
+  return s;
+};
+
+const getShiftClass = (shift: string): string => {
+  const s = formatShift(shift);
+  if (s === 'D') return 'shift-D';
+  if (s === 'S') return 'shift-S';
+  if (s === 'N') return 'shift-N';
+  if (s === '/') return 'shift-slash';
+  if (s === 'H') return 'shift-H';
+  return '';
+};
 
 function App() {
   const [isEditMode, setIsEditMode] = useState(false);
@@ -230,7 +251,21 @@ function App() {
     const savedTemplates = localStorage.getItem('templates');
     if (savedTemplates) {
       try {
-        return JSON.parse(savedTemplates);
+        const parsed = JSON.parse(savedTemplates);
+        const migrated: Record<string, Category[]> = { ...parsed };
+        const keyMap: Record<string, string> = {
+          '日勤': 'D',
+          '遅番': 'S',
+          '夜勤': 'N',
+          '夜勤明け': '/',
+          '休日': 'H'
+        };
+        Object.entries(keyMap).forEach(([oldKey, newKey]) => {
+          if (migrated[oldKey] && !migrated[newKey]) {
+            migrated[newKey] = migrated[oldKey];
+          }
+        });
+        return migrated;
       } catch (e) {
         // ignore
       }
@@ -266,14 +301,14 @@ function App() {
     const today = getTodayDate();
     const c = localStorage.getItem('categories');
     const categoriesData = c ? JSON.parse(c) : defaultCategories;
-    const shiftData = localStorage.getItem('currentShift') || '日勤';
+    const shiftData = localStorage.getItem('currentShift') || 'D';
     const sigData = localStorage.getItem('signature') || null;
     const rwData = localStorage.getItem('rewardImage') || null;
     
     return {
       [today]: {
         categories: categoriesData,
-        currentShift: shiftData,
+        currentShift: formatShift(shiftData) || 'D',
         signature: sigData,
         rewardImage: rwData
       }
@@ -302,6 +337,9 @@ function App() {
     if (currentSaved) {
       try {
         const parsed = JSON.parse(currentSaved);
+        if (parsed['D']) {
+          return sanitizeCategories(parsed['D']);
+        }
         if (parsed['日勤']) {
           return sanitizeCategories(parsed['日勤']);
         }
@@ -509,7 +547,7 @@ function App() {
   // Derived state for the active tab or master template
   const activeCard = displayCards[currentActiveDate] || {
     categories: defaultCategories,
-    currentShift: '日勤',
+    currentShift: 'D',
     signature: null,
     rewardImage: null,
     dayRating: 0,
@@ -540,7 +578,7 @@ function App() {
       return;
     }
     setCards(prev => {
-      const card = prev[activeDate] || { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null };
+      const card = prev[activeDate] || { categories: defaultCategories, currentShift: 'D', signature: null, rewardImage: null };
       const resolved = typeof newCats === 'function' ? newCats(card.categories) : newCats;
       return { ...prev, [activeDate]: { ...card, categories: resolved } };
     });
@@ -552,7 +590,7 @@ function App() {
     if (viewingArchivedCycle) return;
     setCards(prev => {
       if (!prev[activeDate] && sig === null) return prev;
-      const card = prev[activeDate] || { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null };
+      const card = prev[activeDate] || { categories: defaultCategories, currentShift: 'D', signature: null, rewardImage: null };
       return { ...prev, [activeDate]: { ...card, signature: sig } };
     });
   };
@@ -561,7 +599,7 @@ function App() {
     if (viewingArchivedCycle) return;
     setCards(prev => {
       if (!prev[activeDate] && img === null) return prev;
-      const card = prev[activeDate] || { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
+      const card = prev[activeDate] || { categories: defaultCategories, currentShift: 'D', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
       return { ...prev, [activeDate]: { ...card, rewardImage: img } };
     });
   };
@@ -569,7 +607,7 @@ function App() {
   const setDayRating = (rating: number) => {
     if (viewingArchivedCycle) return;
     setCards(prev => {
-      const card = prev[activeDate] || { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
+      const card = prev[activeDate] || { categories: defaultCategories, currentShift: 'D', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
       return { ...prev, [activeDate]: { ...card, dayRating: rating } };
     });
   };
@@ -577,7 +615,7 @@ function App() {
   const setSignOffNote = (note: string) => {
     if (viewingArchivedCycle) return;
     setCards(prev => {
-      const card = prev[activeDate] || { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
+      const card = prev[activeDate] || { categories: defaultCategories, currentShift: 'D', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
       return { ...prev, [activeDate]: { ...card, signOffNote: note } };
     });
   };
@@ -585,7 +623,7 @@ function App() {
   const setNewThings = (val: string) => {
     if (viewingArchivedCycle) return;
     setCards(prev => {
-      const card = prev[activeDate] || { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
+      const card = prev[activeDate] || { categories: defaultCategories, currentShift: 'D', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
       return { ...prev, [activeDate]: { ...card, newThings: val } };
     });
   };
@@ -593,7 +631,7 @@ function App() {
   const setMomentOfTheDay = (val: string) => {
     if (viewingArchivedCycle) return;
     setCards(prev => {
-      const card = prev[activeDate] || { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
+      const card = prev[activeDate] || { categories: defaultCategories, currentShift: 'D', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
       return { ...prev, [activeDate]: { ...card, momentOfTheDay: val } };
     });
   };
@@ -601,7 +639,7 @@ function App() {
   const setAppreciate = (val: string) => {
     if (viewingArchivedCycle) return;
     setCards(prev => {
-      const card = prev[activeDate] || { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
+      const card = prev[activeDate] || { categories: defaultCategories, currentShift: 'D', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
       return { ...prev, [activeDate]: { ...card, appreciate: val } };
     });
   };
@@ -865,7 +903,13 @@ function App() {
   };
 
   const loadShiftTemplate = (shift: string) => {
-    const rawTemplate = (templates[shift] && templates[shift].length > 0) ? templates[shift] : masterCardTemplate;
+    const normalizedShift = formatShift(shift);
+    const legacyShiftKey = normalizedShift === 'D' ? '日勤' : normalizedShift === 'S' ? '遅番' : normalizedShift === 'N' ? '夜勤' : normalizedShift === '/' ? '夜勤明け' : normalizedShift === 'H' ? '休日' : '';
+    const rawTemplate = (templates[normalizedShift] && templates[normalizedShift].length > 0)
+      ? templates[normalizedShift]
+      : (legacyShiftKey && templates[legacyShiftKey] && templates[legacyShiftKey].length > 0)
+        ? templates[legacyShiftKey]
+        : masterCardTemplate;
     const template = (rawTemplate && rawTemplate.length > 0) ? rawTemplate : defaultCategories;
     const cleanCategories = template.map(c => ({
       ...c,
@@ -875,10 +919,9 @@ function App() {
     setCards(prev => {
       const newCards = { ...prev };
 
-      
       newCards[selectedIssueDate] = {
         categories: cleanCategories,
-        currentShift: shift,
+        currentShift: normalizedShift,
         signature: null,
         rewardImage: null
       };
@@ -1100,7 +1143,7 @@ function App() {
         setCards(prev => {
           const current = (prev && prev[targetDate]) ? prev[targetDate] : {
             categories: defaultCategories,
-            currentShift: currentShift || '日勤',
+            currentShift: currentShift || 'D',
             signature: null,
             rewardImage: null,
             dayRating: 0,
@@ -1169,7 +1212,7 @@ function App() {
                setActiveDate(newCards[today] ? today : remainingDates[0]);
              } else {
                const today = getTodayDate();
-               newCards[today] = { categories: defaultCategories, currentShift: '日勤', signature: null, rewardImage: null };
+               newCards[today] = { categories: defaultCategories, currentShift: 'D', signature: null, rewardImage: null };
                setActiveDate(today);
              }
           }
@@ -1221,16 +1264,6 @@ function App() {
         shiftIndex: cycleCountsByMonth[monthStr]
       });
     });
-
-    const getShiftClass = (shift: string) => {
-      if (!shift) return '';
-      if (shift.includes('日勤')) return 'shift-nikkin';
-      if (shift.includes('遅番')) return 'shift-osoban';
-      if (shift.includes('夜勤明け') || shift.includes('明け')) return 'shift-ake';
-      if (shift.includes('夜勤')) return 'shift-yakin';
-      if (shift.includes('休')) return 'shift-kyujitsu';
-      return '';
-    };
 
     const getHeatClass = (card: any) => {
       if (!card) return 'heat-0';
@@ -1307,7 +1340,7 @@ function App() {
                                 }}
                               >
                                 <div className="archive-card-date">{dayNum}</div>
-                                <div className="archive-card-shift">{c.currentShift}</div>
+                                <div className={`archive-card-shift ${shiftClass}`}>{formatShift(c?.currentShift || '')}</div>
                               </div>
                             );
                           })}
@@ -1810,7 +1843,7 @@ function App() {
             {isEditingMasterTemplate ? (
               <span className="master-badge">TEMPLATE [MASTER]</span>
             ) : (
-              <>Issue date: {currentActiveDate} <span className="shift-badge">[{currentShift}]</span></>
+              <>Issue date: {currentActiveDate} <span className="shift-badge">[{formatShift(currentShift)}]</span></>
             )}
           </div>
         </div>
@@ -2349,15 +2382,18 @@ function App() {
             <p className="modal-subtitle">{formatDateLabel(selectedIssueDate)} のシフトを選択してください</p>
 
             <div className="shift-buttons">
-              {SHIFTS.map(shift => (
-                <button 
-                  key={shift} 
-                  className={`shift-btn`}
-                  onClick={() => loadShiftTemplate(shift)}
-                >
-                  {shift}
-                </button>
-              ))}
+              {SHIFTS.map(shift => {
+                const btnClass = shift === '/' ? 'slash' : shift;
+                return (
+                  <button 
+                    key={shift} 
+                    className={`shift-btn shift-btn-${btnClass}`}
+                    onClick={() => loadShiftTemplate(shift)}
+                  >
+                    {shift}
+                  </button>
+                );
+              })}
             </div>
             <button className="cancel-btn" onClick={() => setIsShiftModalOpen(false)}>Cancel</button>
           </div>
