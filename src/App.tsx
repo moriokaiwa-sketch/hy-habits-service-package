@@ -1429,21 +1429,8 @@ function App() {
                       )}
                     </div>
 
-                    {!isEditMode && (
+                    {!isEditMode && kpi.type !== 'check' && (
                       <div className="kpi-interactive-area">
-                        {kpi.type === 'check' && (
-                          <div 
-                            className={`kpi-check-box ${kpi.currentValue ? 'checked' : ''}`}
-                            onClick={() => handleToggleCheckKpi(kpi.id)}
-                            title="タップで済スタンプを切り替え"
-                          >
-                            <span className="kpi-check-label">INSPECTION CHECK</span>
-                            <div className="kpi-stamp-wrapper">
-                              {kpi.currentValue && <div className="stamp">済</div>}
-                            </div>
-                          </div>
-                        )}
-
                         {kpi.type === 'number' && (() => {
                           const current = typeof kpi.currentValue === 'number' ? kpi.currentValue : 0;
                           const target = kpi.targetValue || 1;
@@ -1520,6 +1507,17 @@ function App() {
                       </div>
                     )}
                   </div>
+
+                  {/* Check Type Stamp Cell (Same as Habits Card done-cell) */}
+                  {!isEditMode && kpi.type === 'check' && (
+                    <div 
+                      className="kpi-stamp-cell done-cell"
+                      onClick={() => handleToggleCheckKpi(kpi.id)}
+                      title="タップで済スタンプを切り替え"
+                    >
+                      {kpi.currentValue && <div className="stamp">済</div>}
+                    </div>
+                  )}
 
                   {isEditMode && (
                     <div className="kpi-action-buttons">

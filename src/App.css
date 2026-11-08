@@ -1621,55 +1621,39 @@ input:checked + .slider:before {
   margin-top: 0.2rem;
 }
 
-/* Check Type Interactive Area */
-.kpi-check-box {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border: 2px dashed #94a3b8;
-  background-color: #f8fafc;
-  padding: 0.75rem 1rem;
-  cursor: pointer;
-  position: relative;
-  min-height: 52px;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-  transition: all 0.15s ease;
-}
-
-.kpi-check-box:hover {
-  background-color: #f1f5f9;
-  border-color: #64748b;
-}
-
-.kpi-check-box.checked {
-  border: 2px solid var(--stamp-color, #d32f2f);
-  background-color: #fef2f2;
-}
-
-.kpi-check-label {
-  font-family: var(--font-mono, monospace);
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #64748b;
-  letter-spacing: 0.06em;
-}
-
-.kpi-stamp-wrapper {
-  position: relative;
-  width: 48px;
-  height: 48px;
-  display: flex;
-  align-items: center;
+/* Right-side Stamp Cell for Check Type (Same as Habits Card done-cell) */
+.kpi-row-item.kpi-type-check .kpi-main-content {
   justify-content: center;
 }
 
-.kpi-stamp-wrapper .stamp {
-  position: static;
-  width: 46px;
-  height: 46px;
-  font-size: 1.6rem;
-  border-width: 2.5px;
+.kpi-stamp-cell {
+  width: 90px;
+  min-width: 90px;
+  min-height: 54px;
+  border-left: 2px solid var(--border-color, #1a1a1a);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  background-color: var(--task-bg, #fff);
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  transition: background-color 0.15s ease;
+}
+
+.kpi-stamp-cell:hover {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+.kpi-stamp-cell:active {
+  background-color: rgba(0, 0, 0, 0.06);
+}
+
+.kpi-stamp-cell .stamp {
+  position: absolute;
+  pointer-events: none;
 }
 
 /* Number Type Controller (Avionics Gauge Counter) */
