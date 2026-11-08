@@ -539,6 +539,7 @@ function App() {
   }, [monthlyKpis, isFirebaseLoaded]);
 
   const [isArchiveListOpen, setIsArchiveListOpen] = useState(false);
+  const [isArchiveView, setIsArchiveView] = useState(false);
   const [viewingArchivedCycle, setViewingArchivedCycle] = useState<{ cycleData: Record<string, any>, activeDate: string } | null>(null);
 
   const displayCards = viewingArchivedCycle ? viewingArchivedCycle.cycleData : cards;
@@ -975,6 +976,7 @@ function App() {
       const today = getTodayDate();
       setSelectedIssueDate(today);
       setActiveDate(today);
+      setIsArchiveView(false);
       setIsArchiveListOpen(false);
       setIsShiftModalOpen(true);
     }
@@ -982,6 +984,7 @@ function App() {
 
   const handleNavCard = () => {
     setIsKpiView(false);
+    setIsArchiveView(false);
     setIsArchiveListOpen(false);
     setIsSettingsModalOpen(false);
     setIsEditingMasterTemplate(false);
@@ -992,6 +995,7 @@ function App() {
 
   const handleNavKpi = () => {
     setIsKpiView(true);
+    setIsArchiveView(false);
     setIsArchiveListOpen(false);
     setIsSettingsModalOpen(false);
     setIsEditingMasterTemplate(false);
@@ -1002,9 +1006,13 @@ function App() {
 
   const handleNavArchive = () => {
     setIsKpiView(false);
+    setIsArchiveView(true);
+    setIsArchiveListOpen(false);
     setIsSettingsModalOpen(false);
     setIsEditingMasterTemplate(false);
-    setIsArchiveListOpen(true);
+    if (viewingArchivedCycle) {
+      setViewingArchivedCycle(null);
+    }
   };
 
   const handleNavSettings = () => {
@@ -1232,9 +1240,7 @@ function App() {
 
 
 
-  const renderArchiveModal = () => {
-    if (!isArchiveListOpen) return null;
-    
+  const renderArchiveView = () => {
     const groupedByMonth: Record<string, Array<{ cycle: any, shiftIndex: number }>> = {};
     const cycleCountsByMonth: Record<string, number> = {};
 
@@ -1292,26 +1298,36 @@ function App() {
     };
 
     return (
-      <div className="modal-overlay" onClick={() => setIsArchiveListOpen(false)}>
-        <div className="modal-content archive-modal-content" onClick={e => e.stopPropagation()}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-            <h3 className="modal-title" style={{ margin: 0 }}>アーカイブ一覧</h3>
-            <button onClick={() => setIsArchiveListOpen(false)} style={{ background: 'none', border: 'none', fontSize: '2rem', cursor: 'pointer', lineHeight: 1 }}>×</button>
-          </div>
-          
-          {!viewingArchivedCycle && Object.keys(cards).length > 0 && (
-            <div style={{ marginBottom: '1.5rem' }}>
-              <button 
-                className="action-btn-archive-cycle"
-                onClick={handleArchiveCycle}
-              >
-                <span>📁</span> 前サイクルをアーカイブして新カード発行
-              </button>
+      <div className="archive-view-container">
+        {/* Industrial Header */}
+        <div className="header-top">
+          <div className="title-area">
+            <div className="document-title">
+              <div className="card-title" style={{ cursor: 'default' }}>ARCHIVE</div>
             </div>
-          )}
-          
+            <div className="issue-date">
+              CYCLES: {archivedCycles.length}
+            </div>
+          </div>
+        </div>
+        <hr className="header-divider" />
+
+        {!viewingArchivedCycle && Object.keys(cards).length > 0 && (
+          <div style={{ marginBottom: '1.25rem', marginTop: '0.25rem' }}>
+            <button 
+              className="action-btn-archive-cycle"
+              onClick={handleArchiveCycle}
+            >
+              <span>📁</span> 前サイクルをアーカイブして新カード発行
+            </button>
+          </div>
+        )}
+
+        <div className="archive-list-body">
           {Object.keys(groupedByMonth).length === 0 ? (
-            <p>アーカイブされたサイクルはありません。</p>
+            <div className="archive-empty-state">
+              <p>アーカイブされたサイクルはありません。</p>
+            </div>
           ) : (
             Object.keys(groupedByMonth).sort().reverse().map(monthStr => {
               const [, month] = monthStr.split('-');
@@ -1336,6 +1352,7 @@ function App() {
                                 className={`archive-card-box ${shiftClass} ${heatClass}`}
                                 onClick={() => {
                                   setIsKpiView(false);
+                                  setIsArchiveView(false);
                                   setViewingArchivedCycle({ cycleData: cycle.cards, activeDate: dateStr });
                                   setIsArchiveListOpen(false);
                                   setIsEditMode(false); // Force execution mode UI for read-only
@@ -1748,6 +1765,8 @@ function App() {
     <div className={`app-container ${effectiveIsEditMode ? 'edit-mode' : 'execution-mode'} ${viewingArchivedCycle ? 'archive-mode' : ''} ${isEditingMasterTemplate ? 'master-edit-mode' : ''}`}>
       {isKpiView && !viewingArchivedCycle ? (
         renderMonthlyKpiView()
+      ) : isArchiveView && !viewingArchivedCycle ? (
+        renderArchiveView()
       ) : (
         <>
           {isEditingMasterTemplate && (
@@ -1769,7 +1788,10 @@ function App() {
       {viewingArchivedCycle && (
         <div className="read-only-banner">
           <span>⚠️ アーカイブ閲覧中 (Read-Only)</span>
-          <button onClick={() => setViewingArchivedCycle(null)}>閉じる</button>
+          <button onClick={() => {
+            setViewingArchivedCycle(null);
+            setIsArchiveView(true);
+          }}>一覧に戻る</button>
         </div>
       )}
       {!isEditingMasterTemplate && Object.keys(displayCards).length > 0 && (
@@ -2401,12 +2423,10 @@ function App() {
         </div>
       )}
 
-      {renderArchiveModal()}
-
       {/* Fixed Bottom Navigation */}
       <nav className="bottom-nav">
         <button 
-          className={`bottom-nav-item ${!isKpiView && !isArchiveListOpen && !isSettingsModalOpen && !viewingArchivedCycle && !isEditingMasterTemplate ? 'active' : ''}`}
+          className={`bottom-nav-item ${!isKpiView && !isArchiveView && !isArchiveListOpen && !isSettingsModalOpen && !viewingArchivedCycle && !isEditingMasterTemplate ? 'active' : ''}`}
           onClick={handleNavCard}
           title="HABITS CARD"
         >
@@ -2414,7 +2434,7 @@ function App() {
           <span className="bottom-nav-label">CARD</span>
         </button>
         <button 
-          className={`bottom-nav-item ${isKpiView && !isArchiveListOpen && !isSettingsModalOpen && !viewingArchivedCycle && !isEditingMasterTemplate ? 'active' : ''}`}
+          className={`bottom-nav-item ${isKpiView && !isArchiveView && !isArchiveListOpen && !isSettingsModalOpen && !viewingArchivedCycle && !isEditingMasterTemplate ? 'active' : ''}`}
           onClick={handleNavKpi}
           title="MONTHLY INSPECTION"
         >
@@ -2422,7 +2442,7 @@ function App() {
           <span className="bottom-nav-label">KPI</span>
         </button>
         <button 
-          className={`bottom-nav-item ${isArchiveListOpen || !!viewingArchivedCycle ? 'active' : ''}`}
+          className={`bottom-nav-item ${isArchiveView || isArchiveListOpen || !!viewingArchivedCycle ? 'active' : ''}`}
           onClick={handleNavArchive}
           title="Past Archives"
         >
