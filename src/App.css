@@ -1136,44 +1136,45 @@ input:checked + .slider:before {
   max-width: 4.2rem; /* 少数枚時の過剰拡大を防止 */
   aspect-ratio: 1 / 1;
   height: auto;
-  border: 2px solid var(--text-color);
+  border: none; /* 枠線を無くしてシンプルに */
+  border-radius: 4px;
   background-color: var(--task-bg);
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   cursor: pointer;
-  box-shadow: 2px 2px 0px rgba(0,0,0,0.1);
-  transition: transform 0.1s;
+  box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.12);
+  transition: transform 0.1s, box-shadow 0.1s;
   padding: 0.2rem 0.1rem;
   box-sizing: border-box;
 }
 
 .archive-card-box:hover {
   transform: translateY(-2px);
-  background-color: #f8f8f8;
+  box-shadow: 1px 3px 6px rgba(0, 0, 0, 0.18);
 }
 
 .archive-card-box:active {
   transform: translateY(0);
 }
 
-/* Shift Border Colors (2px solid muted industrial tones) */
-.archive-card-box.shift-border-nikkin {
-  border-color: #B73225; /* くすんだ赤 (日勤) */
+/* Date Number Shift Colors (Industrial Muted Colors) */
+.archive-card-box.shift-nikkin .archive-card-date {
+  color: #B73225; /* くすんだ赤 (日勤) */
 }
 
-.archive-card-box.shift-border-osoban {
-  border-color: #D97736; /* 落ち着いたオレンジ (遅番) */
+.archive-card-box.shift-osoban .archive-card-date {
+  color: #D97736; /* 落ち着いたオレンジ (遅番) */
 }
 
-.archive-card-box.shift-border-yakin {
-  border-color: #2B5278; /* 深みのある青 (夜勤) */
+.archive-card-box.shift-yakin .archive-card-date {
+  color: #2B5278; /* 深みのある青 (夜勤) */
 }
 
-.archive-card-box.shift-border-ake,
-.archive-card-box.shift-border-kyujitsu {
-  border-color: #1B4324; /* 深いダークグリーン (夜勤明け & 休日) */
+.archive-card-box.shift-ake .archive-card-date,
+.archive-card-box.shift-kyujitsu .archive-card-date {
+  color: #1B4324; /* 深いダークグリーン (夜勤明け & 休日) */
 }
 
 /* Completion Rate Heatmap Background (5 Levels Muted Green) */
@@ -1213,10 +1214,11 @@ input:checked + .slider:before {
 }
 
 .archive-card-date {
-  font-weight: bold;
-  font-size: clamp(0.85rem, 3.6vw, 1.15rem);
+  font-weight: 800;
+  font-size: clamp(0.9rem, 3.8vw, 1.25rem);
   font-family: monospace;
   line-height: 1.1;
+  text-shadow: 0 0 1px rgba(255, 255, 255, 0.4);
 }
 
 .archive-card-shift {
