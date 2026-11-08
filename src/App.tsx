@@ -1001,6 +1001,7 @@ function App() {
   };
 
   const handleNavArchive = () => {
+    setIsKpiView(false);
     setIsSettingsModalOpen(false);
     setIsEditingMasterTemplate(false);
     setIsArchiveListOpen(true);
@@ -1334,6 +1335,7 @@ function App() {
                                 key={dateStr} 
                                 className={`archive-card-box ${shiftClass} ${heatClass}`}
                                 onClick={() => {
+                                  setIsKpiView(false);
                                   setViewingArchivedCycle({ cycleData: cycle.cards, activeDate: dateStr });
                                   setIsArchiveListOpen(false);
                                   setIsEditMode(false); // Force execution mode UI for read-only
@@ -1744,7 +1746,7 @@ function App() {
 
   return (
     <div className={`app-container ${effectiveIsEditMode ? 'edit-mode' : 'execution-mode'} ${viewingArchivedCycle ? 'archive-mode' : ''} ${isEditingMasterTemplate ? 'master-edit-mode' : ''}`}>
-      {isKpiView ? (
+      {isKpiView && !viewingArchivedCycle ? (
         renderMonthlyKpiView()
       ) : (
         <>
