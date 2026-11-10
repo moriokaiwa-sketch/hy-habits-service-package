@@ -546,8 +546,9 @@ function App() {
   const currentActiveDate = viewingArchivedCycle ? viewingArchivedCycle.activeDate : activeDate;
 
   // Derived state for the active tab or master template
+  const fallbackCategories = (masterCardTemplate && masterCardTemplate.length > 0) ? masterCardTemplate : defaultCategories;
   const activeCard = displayCards[currentActiveDate] || {
-    categories: defaultCategories,
+    categories: fallbackCategories,
     currentShift: 'D',
     signature: null,
     rewardImage: null,
@@ -579,7 +580,7 @@ function App() {
       return;
     }
     setCards(prev => {
-      const card = prev[activeDate] || { categories: defaultCategories, currentShift: 'D', signature: null, rewardImage: null };
+      const card = prev[activeDate] || { categories: fallbackCategories, currentShift: 'D', signature: null, rewardImage: null };
       const resolved = typeof newCats === 'function' ? newCats(card.categories) : newCats;
       return { ...prev, [activeDate]: { ...card, categories: resolved } };
     });
@@ -591,7 +592,7 @@ function App() {
     if (viewingArchivedCycle) return;
     setCards(prev => {
       if (!prev[activeDate] && sig === null) return prev;
-      const card = prev[activeDate] || { categories: defaultCategories, currentShift: 'D', signature: null, rewardImage: null };
+      const card = prev[activeDate] || { categories: fallbackCategories, currentShift: 'D', signature: null, rewardImage: null };
       return { ...prev, [activeDate]: { ...card, signature: sig } };
     });
   };
@@ -600,7 +601,7 @@ function App() {
     if (viewingArchivedCycle) return;
     setCards(prev => {
       if (!prev[activeDate] && img === null) return prev;
-      const card = prev[activeDate] || { categories: defaultCategories, currentShift: 'D', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
+      const card = prev[activeDate] || { categories: fallbackCategories, currentShift: 'D', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
       return { ...prev, [activeDate]: { ...card, rewardImage: img } };
     });
   };
@@ -608,7 +609,7 @@ function App() {
   const setDayRating = (rating: number) => {
     if (viewingArchivedCycle) return;
     setCards(prev => {
-      const card = prev[activeDate] || { categories: defaultCategories, currentShift: 'D', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
+      const card = prev[activeDate] || { categories: fallbackCategories, currentShift: 'D', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
       return { ...prev, [activeDate]: { ...card, dayRating: rating } };
     });
   };
@@ -616,7 +617,7 @@ function App() {
   const setSignOffNote = (note: string) => {
     if (viewingArchivedCycle) return;
     setCards(prev => {
-      const card = prev[activeDate] || { categories: defaultCategories, currentShift: 'D', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
+      const card = prev[activeDate] || { categories: fallbackCategories, currentShift: 'D', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
       return { ...prev, [activeDate]: { ...card, signOffNote: note } };
     });
   };
@@ -624,7 +625,7 @@ function App() {
   const setNewThings = (val: string) => {
     if (viewingArchivedCycle) return;
     setCards(prev => {
-      const card = prev[activeDate] || { categories: defaultCategories, currentShift: 'D', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
+      const card = prev[activeDate] || { categories: fallbackCategories, currentShift: 'D', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
       return { ...prev, [activeDate]: { ...card, newThings: val } };
     });
   };
@@ -632,7 +633,7 @@ function App() {
   const setMomentOfTheDay = (val: string) => {
     if (viewingArchivedCycle) return;
     setCards(prev => {
-      const card = prev[activeDate] || { categories: defaultCategories, currentShift: 'D', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
+      const card = prev[activeDate] || { categories: fallbackCategories, currentShift: 'D', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
       return { ...prev, [activeDate]: { ...card, momentOfTheDay: val } };
     });
   };
@@ -640,7 +641,7 @@ function App() {
   const setAppreciate = (val: string) => {
     if (viewingArchivedCycle) return;
     setCards(prev => {
-      const card = prev[activeDate] || { categories: defaultCategories, currentShift: 'D', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
+      const card = prev[activeDate] || { categories: fallbackCategories, currentShift: 'D', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
       return { ...prev, [activeDate]: { ...card, appreciate: val } };
     });
   };
@@ -1220,9 +1221,7 @@ function App() {
                const today = getTodayDate();
                setActiveDate(newCards[today] ? today : remainingDates[0]);
              } else {
-               const today = getTodayDate();
-               newCards[today] = { categories: defaultCategories, currentShift: 'D', signature: null, rewardImage: null };
-               setActiveDate(today);
+               setActiveDate(getTodayDate());
              }
           }
           return newCards;
@@ -1794,11 +1793,11 @@ function App() {
           }}>一覧に戻る</button>
         </div>
       )}
-      {!isEditingMasterTemplate && Object.keys(displayCards).length > 0 && (
+      {!isEditingMasterTemplate && (
         <div className="date-tabs">
           {Object.keys(displayCards).sort().map(dateStr => (
             <button 
-              key={dateStr}
+              key={dateStr} 
               className={`date-tab ${dateStr === currentActiveDate ? 'active' : ''}`}
               onClick={() => {
                 if (viewingArchivedCycle) {
@@ -1852,6 +1851,48 @@ function App() {
           )}
         </div>
       )}
+
+      {!isEditingMasterTemplate && !viewingArchivedCycle && Object.keys(displayCards).length === 0 ? (
+        <div className="empty-cards-container">
+          <div className="empty-cards-box">
+            <div className="empty-cards-icon">📋</div>
+            <h3 className="empty-cards-title">NO ACTIVE CARDS</h3>
+            <p className="empty-cards-desc">
+              現在発行されているHABITS CARDはありません。<br />
+              下のボタンから新しいカードを発行してください。
+            </p>
+            <div className="empty-cards-actions">
+              <button 
+                type="button"
+                className="empty-cards-issue-btn"
+                onClick={() => {
+                  setSelectedIssueDate(getTodayDate());
+                  openShiftModal();
+                }}
+              >
+                ＋ 新しいCARDを発行
+              </button>
+              {archivedCycles.length > 0 && (
+                <button 
+                  type="button"
+                  className="empty-cards-restore-btn"
+                  onClick={() => {
+                    const latest = archivedCycles[archivedCycles.length - 1];
+                    const dates = Object.keys(latest.cards || {}).sort();
+                    if (window.confirm(`直前のアーカイブ（${dates[0]}〜${dates[dates.length - 1]}）からカードを復元しますか？`)) {
+                      setCards(latest.cards || {});
+                      if (dates.length > 0) setActiveDate(dates[dates.length - 1]);
+                    }
+                  }}
+                >
+                  📁 直前のアーカイブから復元
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
       <div className="header-top">
         <div className="title-area">
           <div className="document-title">
@@ -1889,14 +1930,39 @@ function App() {
 
       {effectiveIsEditMode && !viewingArchivedCycle && !isEditingMasterTemplate && (
         <div className="edit-mode-toolbar">
-          <button 
-            type="button"
-            className="load-master-btn" 
-            onClick={handleLoadFromMaster}
-            title="マスターカード（テンプレート）のタスク構成をこのカードに上書き読み込みします"
-          >
-            📋 LOAD FROM MASTER
-          </button>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <button 
+              type="button"
+              className="load-master-btn" 
+              onClick={handleLoadFromMaster}
+              title="マスターカード（テンプレート）のタスク構成をこのカードに上書き読み込みします"
+            >
+              📋 LOAD FROM MASTER
+            </button>
+            <button 
+              type="button"
+              className="delete-card-toolbar-btn" 
+              onClick={() => {
+                if (window.confirm(`${formatDateLabel(currentActiveDate)} のカードを削除しますか？`)) {
+                  setCards(prev => {
+                    const newCards = { ...prev };
+                    delete newCards[currentActiveDate];
+                    const remainingDates = Object.keys(newCards).sort();
+                    if (remainingDates.length > 0) {
+                      const today = getTodayDate();
+                      setActiveDate(newCards[today] ? today : remainingDates[0]);
+                    } else {
+                      setActiveDate(getTodayDate());
+                    }
+                    return newCards;
+                  });
+                }
+              }}
+              title="このカードを削除します"
+            >
+              🗑 このカードを削除
+            </button>
+          </div>
           <span className="load-master-hint">※マスターのタスク構成を読み込み（日付/シフト情報は保持）</span>
         </div>
       )}
@@ -2263,6 +2329,8 @@ function App() {
               )}
             </div>
           )}
+        </>
+      )}
         </>
       )}
         </>

@@ -1546,6 +1546,31 @@ input:checked + .slider:before {
   box-shadow: 1px 1px 0 var(--text-color);
 }
 
+.delete-card-toolbar-btn {
+  background-color: #d32f2f;
+  color: #ffffff;
+  border: 2px solid var(--text-color);
+  padding: 0.45rem 0.9rem;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  box-shadow: 2px 2px 0 var(--text-color);
+  transition: all 0.1s ease;
+}
+
+.delete-card-toolbar-btn:hover {
+  background-color: #b71c1c;
+}
+
+.delete-card-toolbar-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--text-color);
+}
+
 .load-master-hint {
   font-size: 0.75rem;
   color: #555e68;
@@ -2045,4 +2070,102 @@ input:checked + .slider:before {
 
 .kpi-add-new-btn:active {
   background-color: #cbd5e1;
+}
+
+/* Empty Cards State */
+.empty-cards-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 380px;
+  width: 100%;
+  padding: 2.5rem 1rem;
+  box-sizing: border-box;
+}
+
+.empty-cards-box {
+  background-color: var(--task-bg, #fdfdfd);
+  border: 2px dashed var(--text-color, #1a1a1a);
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  max-width: 440px;
+  width: 100%;
+  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.08);
+}
+
+.empty-cards-icon {
+  font-size: 3rem;
+  margin-bottom: 0.75rem;
+}
+
+.empty-cards-title {
+  font-size: 1.3rem;
+  font-weight: 800;
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.05em;
+  margin: 0 0 0.75rem;
+  color: var(--text-color, #1a1a1a);
+}
+
+.empty-cards-desc {
+  font-size: 0.85rem;
+  color: #666;
+  line-height: 1.6;
+  margin-bottom: 1.75rem;
+  font-family: var(--font-mono, monospace);
+}
+
+.empty-cards-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.empty-cards-issue-btn {
+  width: 100%;
+  max-width: 280px;
+  padding: 0.85rem 1.25rem;
+  background-color: var(--header-bg, #008744);
+  color: #fff;
+  border: 2px solid var(--text-color, #1a1a1a);
+  font-size: 1rem;
+  font-weight: bold;
+  font-family: var(--font-mono, monospace);
+  cursor: pointer;
+  box-shadow: 2px 2px 0px var(--text-color, #1a1a1a);
+  transition: all 0.1s ease;
+}
+
+.empty-cards-issue-btn:hover {
+  background-color: #00723a;
+}
+
+.empty-cards-issue-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px var(--text-color, #1a1a1a);
+}
+
+.empty-cards-restore-btn {
+  width: 100%;
+  max-width: 280px;
+  padding: 0.65rem 1rem;
+  background-color: #fff;
+  color: var(--text-color, #1a1a1a);
+  border: 2px solid var(--text-color, #1a1a1a);
+  font-size: 0.85rem;
+  font-weight: bold;
+  font-family: var(--font-mono, monospace);
+  cursor: pointer;
+  box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.1);
+  transition: all 0.1s ease;
+}
+
+.empty-cards-restore-btn:hover {
+  background-color: #f0f0f0;
+}
+
+.empty-cards-restore-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px rgba(0, 0, 0, 0.1);
 }
