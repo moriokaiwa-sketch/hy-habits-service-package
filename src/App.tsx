@@ -482,7 +482,12 @@ function App() {
       lastSyncStr.current.archivedCycles = currentStr;
       try {
         const cleanPayload = JSON.parse(currentStr);
-        setDoc(doc(db, 'appData', 'sharedState'), { archivedCycles: cleanPayload }, { merge: true }).catch(console.error);
+        setDoc(doc(db, 'appData', 'sharedState'), { archivedCycles: cleanPayload }, { merge: true }).catch((err) => {
+          console.error("Firestore sync error for archivedCycles:", err);
+          if (err && (err.code === 'resource-exhausted' || err.message?.includes('exceeds maximum allowed size'))) {
+            alert("⚠️ データベース容量の制限によりアーカイブの同期に失敗しました。管理者に確認してください。");
+          }
+        });
       } catch (err) {
         console.error("Firestore sync error for archivedCycles:", err);
       }
@@ -964,15 +969,37 @@ function App() {
     }
   };
 
-  const handleArchiveCycle = () => {
+  const handleArchiveCycle = async () => {
+    if (Object.keys(cards).length === 0) {
+      alert("アーカイブ対象のカードがありません。");
+      return;
+    }
+
     if (window.confirm("現在のサイクルを終了し、過去ログにアーカイブしますか？")) {
       const cycleId = `cycle-${Date.now()}`;
-      setArchivedCycles(prev => [...prev, {
+      const newCycle = {
         cycleId,
         timestamp: Date.now(),
         cards: cards
-      }]);
+      };
+      const updatedCycles = [...archivedCycles, newCycle];
+
+      // Firestore への先行アトミック保存（アーカイブ保存とカードクリアを同時実行）
+      if (isFirebaseLoaded && db) {
+        try {
+          const cleanCycles = JSON.parse(JSON.stringify(updatedCycles));
+          await setDoc(doc(db, 'appData', 'sharedState'), { 
+            archivedCycles: cleanCycles,
+            cards: {}
+          }, { merge: true });
+        } catch (err: any) {
+          console.error("Archive sync error:", err);
+          alert("アーカイブの保存中にエラーが発生しました: " + (err?.message || String(err)) + "\n現在のカードは保護されています。");
+          return;
+        }
+      }
       
+      setArchivedCycles(updatedCycles);
       setCards({});
       const today = getTodayDate();
       setSelectedIssueDate(today);
@@ -2360,8 +2387,28 @@ function App() {
                     alert("Please provide a signature first.");
                     return;
                   }
-                  const dataURL = signaturePadRef.current?.getTrimmedCanvas().toDataURL('image/png');
-                  if (dataURL) {
+                  const trimmed = signaturePadRef.current?.getTrimmedCanvas();
+                  if (trimmed) {
+                    // 軽量化: 最大幅240pxにリサイズして保存（30KB→2KB程度に削減）
+                    let dataURL = '';
+                    try {
+                      const targetWidth = Math.min(trimmed.width, 240);
+                      const scale = targetWidth / trimmed.width;
+                      const targetHeight = Math.round(trimmed.height * scale);
+                      const resizeCanvas = document.createElement('canvas');
+                      resizeCanvas.width = targetWidth;
+                      resizeCanvas.height = targetHeight;
+                      const ctx = resizeCanvas.getContext('2d');
+                      if (ctx) {
+                        ctx.drawImage(trimmed, 0, 0, targetWidth, targetHeight);
+                        dataURL = resizeCanvas.toDataURL('image/png');
+                      }
+                    } catch (e) {
+                      console.error("Signature resize failed, using raw trimmed canvas", e);
+                    }
+                    if (!dataURL) {
+                      dataURL = trimmed.toDataURL('image/png');
+                    }
                     setSignature(dataURL);
                     setIsSignatureModalOpen(false);
                     if (!rewardImage && rewardImageUrls) {
