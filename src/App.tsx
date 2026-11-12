@@ -119,6 +119,35 @@ const defaultMonthlyKpis: MonthlyKpi[] = [
   }
 ];
 
+export interface BasicData {
+  sleepStart?: string;     // 例: "21:00"
+  sleepEnd?: string;       // 例: "06:00"
+  weight?: number;         // 将来拡張用: 体重 (kg)
+  bodyFat?: number;        // 将来拡張用: 体脂肪率 (%)
+  skeletalMuscle?: number; // 将来拡張用: 骨格筋率 (%)
+}
+
+const calculateSleepDuration = (start?: string, end?: string) => {
+  if (!start || !end) return null;
+  const [sH, sM] = start.split(':').map(Number);
+  const [eH, eM] = end.split(':').map(Number);
+  if (isNaN(sH) || isNaN(sM) || isNaN(eH) || isNaN(eM)) return null;
+
+  let diffMinutes = (eH * 60 + eM) - (sH * 60 + sM);
+  if (diffMinutes < 0) {
+    diffMinutes += 24 * 60; // 翌朝に跨ぐ場合 (例: 21:00 - 06:00 は +9時間)
+  }
+
+  const hoursDecimal = (diffMinutes / 60).toFixed(1);
+  return {
+    start,
+    end,
+    minutes: diffMinutes,
+    hoursDecimal,
+    formattedText: `${start} - ${end} (${hoursDecimal}h)`
+  };
+};
+
 interface Habit {
   id: string;
   task: string;
@@ -561,7 +590,8 @@ function App() {
     signOffNote: '',
     newThings: '',
     momentOfTheDay: '',
-    appreciate: ''
+    appreciate: '',
+    basicData: {}
   };
 
   const categories: Category[] = sanitizeCategories(
@@ -575,6 +605,31 @@ function App() {
   const newThings: string = isEditingMasterTemplate ? '' : (activeCard.newThings || '');
   const momentOfTheDay: string = isEditingMasterTemplate ? '' : (activeCard.momentOfTheDay || '');
   const appreciate: string = isEditingMasterTemplate ? '' : (activeCard.appreciate || '');
+  const basicData: BasicData = isEditingMasterTemplate ? {} : (activeCard.basicData || {});
+
+  const setBasicData = (newData: Partial<BasicData>) => {
+    if (viewingArchivedCycle || isEditingMasterTemplate) return;
+    setCards(prev => {
+      const card = prev[activeDate] || { 
+        categories: fallbackCategories, 
+        currentShift: 'D', 
+        signature: null, 
+        rewardImage: null,
+        basicData: {} 
+      };
+      const updatedBasicData: BasicData = {
+        ...(card.basicData || {}),
+        ...newData
+      };
+      return {
+        ...prev,
+        [activeDate]: {
+          ...card,
+          basicData: updatedBasicData
+        }
+      };
+    });
+  };
 
   const setCategories = (newCats: any) => {
     if (viewingArchivedCycle) return;
@@ -654,6 +709,16 @@ function App() {
   const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isSleepModalOpen, setIsSleepModalOpen] = useState(false);
+  const [tempSleepStart, setTempSleepStart] = useState('');
+  const [tempSleepEnd, setTempSleepEnd] = useState('');
+
+  const openSleepModal = () => {
+    if (viewingArchivedCycle || isEditingMasterTemplate) return;
+    setTempSleepStart(basicData.sleepStart || '23:00');
+    setTempSleepEnd(basicData.sleepEnd || '07:00');
+    setIsSleepModalOpen(true);
+  };
   
   const [rewardImageUrls, setRewardImageUrls] = useState(() => localStorage.getItem('rewardImageUrls') || '');
   const [isFetchingReward, setIsFetchingReward] = useState(false);
@@ -715,8 +780,9 @@ function App() {
     }
   }, [categories, isEditMode, currentShift, isEditingMasterTemplate]);
 
-  const totalTasks = categories.reduce((sum, cat) => sum + (Array.isArray(cat?.items) ? cat.items.length : 0), 0);
-  const completedOrSkippedTasks = categories.reduce((sum, cat) => sum + (Array.isArray(cat?.items) ? cat.items.filter(t => t?.isDone || t?.isSkipped).length : 0), 0);
+  const isSleepDone = Boolean(basicData.sleepStart && basicData.sleepEnd);
+  const totalTasks = categories.reduce((sum, cat) => sum + (Array.isArray(cat?.items) ? cat.items.length : 0), 0) + (isEditingMasterTemplate ? 0 : 1);
+  const completedOrSkippedTasks = categories.reduce((sum, cat) => sum + (Array.isArray(cat?.items) ? cat.items.filter(t => t?.isDone || t?.isSkipped).length : 0), 0) + (isEditingMasterTemplate ? 0 : (isSleepDone ? 1 : 0));
   const isAllTasksCompleted = totalTasks > 0 && totalTasks === completedOrSkippedTasks;
 
   useEffect(() => {
@@ -930,7 +996,8 @@ function App() {
         categories: cleanCategories,
         currentShift: normalizedShift,
         signature: null,
-        rewardImage: null
+        rewardImage: null,
+        basicData: {}
       };
       
       return newCards;
@@ -1310,6 +1377,13 @@ function App() {
           }
         });
       });
+
+      if (card.basicData !== undefined) {
+        total++;
+        if (card.basicData.sleepStart && card.basicData.sleepEnd) {
+          done++;
+        }
+      }
 
       if (total === 0) {
         return card.signature ? 'heat-4' : 'heat-0';
@@ -1994,6 +2068,44 @@ function App() {
         </div>
       )}
 
+      {/* BASIC DATA 固定ブロック */}
+      {!isEditingMasterTemplate && (
+        <div className="table-container basic-data-table">
+          <div className="table-header basic-data-header">
+            <span>BASIC DATA</span>
+            <span className="basic-data-header-tag">FIXED</span>
+          </div>
+          <div className="basic-data-row">
+            <div className="basic-data-label-cell">
+              <span className="basic-data-item-title">Sleeping Time</span>
+            </div>
+            <div 
+              className={`basic-data-value-cell ${isSleepDone ? 'is-done' : 'is-empty'} ${viewingArchivedCycle ? 'is-readonly' : ''}`}
+              onClick={openSleepModal}
+              title={viewingArchivedCycle ? '睡眠時間' : 'タップして睡眠時間を記録'}
+            >
+              {(() => {
+                const sleepInfo = calculateSleepDuration(basicData.sleepStart, basicData.sleepEnd);
+                if (sleepInfo) {
+                  return (
+                    <div className="basic-data-time-wrapper">
+                      <span className="basic-data-range-text">{sleepInfo.start} - {sleepInfo.end}</span>
+                      <span className="basic-data-duration-badge">({sleepInfo.hoursDecimal}h)</span>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="basic-data-placeholder-wrapper">
+                    <span className="basic-data-placeholder-time">--:-- - --:--</span>
+                    {!viewingArchivedCycle && <span className="basic-data-tap-hint">TAP TO SET</span>}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
       <DragDropContext onDragEnd={handleDragEnd}>
         <Droppable droppableId="board" type="category" isDropDisabled={!effectiveIsEditMode}>
           {(provided) => (
@@ -2534,6 +2646,113 @@ function App() {
               })}
             </div>
             <button className="cancel-btn" onClick={() => setIsShiftModalOpen(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {isSleepModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsSleepModalOpen(false)}>
+          <div className="modal-content sleep-modal-content" onClick={e => e.stopPropagation()}>
+            <div className="sleep-modal-header">
+              <h3 className="modal-title">SLEEP TIME</h3>
+              <button 
+                type="button" 
+                className="sleep-modal-close-icon"
+                onClick={() => setIsSleepModalOpen(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <p className="modal-subtitle">入眠時刻と起床時刻を入力してください</p>
+
+            <div className="sleep-input-container">
+              <div className="sleep-input-card">
+                <span className="sleep-field-label">BEDTIME (入眠)</span>
+                <input
+                  type="time"
+                  className="sleep-native-time-input"
+                  value={tempSleepStart}
+                  onChange={e => setTempSleepStart(e.target.value)}
+                />
+              </div>
+
+              <div className="sleep-arrow-divider">➔</div>
+
+              <div className="sleep-input-card">
+                <span className="sleep-field-label">WAKE UP (起床)</span>
+                <input
+                  type="time"
+                  className="sleep-native-time-input"
+                  value={tempSleepEnd}
+                  onChange={e => setTempSleepEnd(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* リアルタイム計算プレビュー */}
+            <div className="sleep-preview-card">
+              {(() => {
+                const preview = calculateSleepDuration(tempSleepStart, tempSleepEnd);
+                if (preview) {
+                  return (
+                    <div className="sleep-preview-body">
+                      <div className="sleep-preview-meta">TOTAL DURATION</div>
+                      <div className="sleep-preview-hours">
+                        {preview.hoursDecimal} <span className="sleep-hours-unit">HOURS</span>
+                      </div>
+                      <div className="sleep-preview-detail">
+                        {preview.start} - {preview.end} ({preview.minutes} min)
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="sleep-preview-placeholder">
+                    入眠時刻と起床時刻を選択してください
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className="sleep-modal-actions">
+              <button 
+                type="button"
+                className="done-btn sleep-save-btn" 
+                onClick={() => {
+                  if (!tempSleepStart || !tempSleepEnd) {
+                    alert("入眠時刻と起床時刻の両方を入力してください。");
+                    return;
+                  }
+                  setBasicData({ sleepStart: tempSleepStart, sleepEnd: tempSleepEnd });
+                  setIsSleepModalOpen(false);
+                }}
+              >
+                SAVE TIME
+              </button>
+
+              {basicData.sleepStart && (
+                <button
+                  type="button"
+                  className="sleep-clear-btn"
+                  onClick={() => {
+                    if (window.confirm("睡眠時間の記録をクリアしますか？")) {
+                      setBasicData({ sleepStart: undefined, sleepEnd: undefined });
+                      setIsSleepModalOpen(false);
+                    }
+                  }}
+                >
+                  CLEAR
+                </button>
+              )}
+
+              <button 
+                type="button"
+                className="cancel-btn" 
+                onClick={() => setIsSleepModalOpen(false)}
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

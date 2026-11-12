@@ -2169,3 +2169,291 @@ input:checked + .slider:before {
   transform: translate(1px, 1px);
   box-shadow: 1px 1px 0px rgba(0, 0, 0, 0.1);
 }
+
+/* ==========================================================================
+   BASIC DATA Block (Fixed Industrial Table)
+   ========================================================================== */
+.basic-data-table {
+  margin-bottom: 1.5rem;
+  border: 2px solid var(--text-color, #1a1a1a);
+  background-color: var(--row-bg, #fff);
+  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.1);
+}
+
+.basic-data-header {
+  background-color: var(--text-color, #1a1a1a);
+  color: #fff;
+  font-family: var(--font-mono, monospace);
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
+  padding: 0.6rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.basic-data-header-tag {
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  padding: 0.1rem 0.45rem;
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 600;
+}
+
+.basic-data-row {
+  display: flex;
+  align-items: stretch;
+  background-color: var(--row-bg, #fff);
+  min-height: 56px;
+}
+
+.basic-data-label-cell {
+  flex: 1;
+  padding: 0.85rem 1rem;
+  border-right: 2px solid var(--border-color, #1a1a1a);
+  display: flex;
+  align-items: center;
+  font-family: var(--font-mono, monospace);
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-color, #1a1a1a);
+}
+
+.basic-data-item-title {
+  display: inline-block;
+  letter-spacing: 0.02em;
+}
+
+.basic-data-value-cell {
+  width: 58%;
+  min-width: 175px;
+  max-width: 230px;
+  padding: 0.6rem 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  font-family: var(--font-mono, monospace);
+  position: relative;
+}
+
+.basic-data-value-cell:hover:not(.is-readonly) {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+.basic-data-value-cell:active:not(.is-readonly) {
+  background-color: rgba(0, 0, 0, 0.08);
+}
+
+.basic-data-value-cell.is-done {
+  background-color: #f7faf8;
+}
+
+.basic-data-value-cell.is-readonly {
+  cursor: default;
+}
+
+.basic-data-time-wrapper {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  text-align: center;
+}
+
+.basic-data-range-text {
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: #1a1a1a;
+  letter-spacing: 0.03em;
+}
+
+.basic-data-duration-badge {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #008744;
+}
+
+.basic-data-placeholder-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+}
+
+.basic-data-placeholder-time {
+  font-size: 0.85rem;
+  color: #999;
+  letter-spacing: 0.05em;
+}
+
+.basic-data-tap-hint {
+  font-size: 0.65rem;
+  color: #666;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  border: 1px dashed #aaa;
+  padding: 0.05rem 0.4rem;
+}
+
+/* ==========================================================================
+   Sleep Time Modal
+   ========================================================================== */
+.sleep-modal-content {
+  max-width: 380px;
+  width: 90%;
+  padding: 1.5rem;
+  border: 3px solid #1a1a1a;
+  box-shadow: 6px 6px 0px rgba(0, 0, 0, 0.25);
+  background: #fff;
+  border-radius: 0;
+}
+
+.sleep-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sleep-modal-header .modal-title {
+  margin: 0;
+  font-family: var(--font-mono, monospace);
+  font-weight: 900;
+  letter-spacing: 0.05em;
+}
+
+.sleep-modal-close-icon {
+  background: none;
+  border: none;
+  font-size: 1.25rem;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  color: #1a1a1a;
+  line-height: 1;
+}
+
+.sleep-input-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 1.25rem 0;
+}
+
+.sleep-input-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  background: #f7f7f7;
+  padding: 0.75rem 0.5rem;
+  border: 2px solid #1a1a1a;
+  text-align: center;
+}
+
+.sleep-field-label {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #555;
+  letter-spacing: 0.05em;
+}
+
+.sleep-native-time-input {
+  width: 100%;
+  border: 1px solid #1a1a1a;
+  background: #fff;
+  padding: 0.5rem 0.2rem;
+  font-family: var(--font-mono, monospace);
+  font-size: 1.15rem;
+  font-weight: 700;
+  text-align: center;
+  color: #1a1a1a;
+  border-radius: 0;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
+.sleep-arrow-divider {
+  font-size: 1.2rem;
+  color: #1a1a1a;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.sleep-preview-card {
+  background: #f0fdf4;
+  border: 2px dashed #008744;
+  padding: 0.85rem;
+  margin-bottom: 1.25rem;
+  text-align: center;
+  font-family: var(--font-mono, monospace);
+}
+
+.sleep-preview-meta {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #008744;
+  letter-spacing: 0.1em;
+}
+
+.sleep-preview-hours {
+  font-size: 1.6rem;
+  font-weight: 900;
+  color: #1a1a1a;
+  margin: 0.2rem 0;
+}
+
+.sleep-hours-unit {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #555;
+}
+
+.sleep-preview-detail {
+  font-size: 0.82rem;
+  color: #555;
+  font-weight: 600;
+}
+
+.sleep-preview-placeholder {
+  font-size: 0.82rem;
+  color: #888;
+}
+
+.sleep-modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.sleep-save-btn {
+  width: 100%;
+  padding: 0.85rem;
+  font-size: 1rem;
+}
+
+.sleep-clear-btn {
+  width: 100%;
+  padding: 0.65rem;
+  background: #fff;
+  color: #d32f2f;
+  border: 2px solid #d32f2f;
+  font-family: var(--font-mono, monospace);
+  font-weight: bold;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.sleep-clear-btn:hover {
+  background: #ffebee;
+}
