@@ -89,12 +89,22 @@ const StarIcon = ({ filled, onClick }: { filled: boolean, onClick: () => void })
   </svg>
 );
 
-interface MonthlyKpi {
+export interface KpiLinkConfig {
+  enabled: boolean;
+  sourceType: 'sleep' | 'task' | 'weight' | 'bodyFat' | 'skeletalMuscle' | 'perfect' | 'rating';
+  operator?: '>=' | '<=' | 'recorded';
+  threshold?: number;
+  taskName?: string;
+  ratingThreshold?: number;
+}
+
+export interface MonthlyKpi {
   id: string;
   title: string;
   type: 'check' | 'number' | 'text';
   targetValue?: number;
   currentValue: boolean | number | string;
+  linkConfig?: KpiLinkConfig;
 }
 
 const defaultMonthlyKpis: MonthlyKpi[] = [
@@ -147,6 +157,87 @@ const calculateSleepDuration = (start?: string, end?: string) => {
     hoursDecimal,
     formattedText: `${start} - ${end} (${hoursDecimal}h)`
   };
+};
+
+const computeLinkedKpiCount = (config: KpiLinkConfig | undefined, monthlyCards: Record<string, any>): number => {
+  if (!config || !config.enabled) return 0;
+  let count = 0;
+
+  Object.values(monthlyCards).forEach(card => {
+    if (!card) return;
+
+    if (config.sourceType === 'sleep') {
+      const b = card.basicData;
+      if (b && b.sleepStart && b.sleepEnd) {
+        const sleep = calculateSleepDuration(b.sleepStart, b.sleepEnd);
+        if (sleep) {
+          const hours = parseFloat(sleep.hoursDecimal);
+          const thresh = config.threshold !== undefined ? Number(config.threshold) : 7.0;
+          if (config.operator === '<=') {
+            if (hours <= thresh) count++;
+          } else {
+            if (hours >= thresh) count++;
+          }
+        }
+      }
+    } else if (config.sourceType === 'task') {
+      const target = (config.taskName || '').trim().toLowerCase();
+      if (!target) return;
+      let isDone = false;
+      (card.categories || []).forEach((cat: any) => {
+        (cat?.items || []).forEach((item: any) => {
+          if (item?.isDone && item?.task && item.task.trim().toLowerCase() === target) {
+            isDone = true;
+          }
+        });
+      });
+      if (isDone) count++;
+    } else if (config.sourceType === 'weight') {
+      const b = card.basicData;
+      if (b && b.weight !== undefined && b.weight !== null && !isNaN(b.weight)) {
+        if (config.operator === 'recorded') {
+          count++;
+        } else if (config.threshold !== undefined) {
+          const w = Number(b.weight);
+          const thresh = Number(config.threshold);
+          if (config.operator === '<=' && w <= thresh) count++;
+          else if (config.operator === '>=' && w >= thresh) count++;
+        }
+      }
+    } else if (config.sourceType === 'bodyFat') {
+      const b = card.basicData;
+      if (b && b.bodyFat !== undefined && b.bodyFat !== null && !isNaN(b.bodyFat)) {
+        if (config.operator === 'recorded') {
+          count++;
+        } else if (config.threshold !== undefined) {
+          const bf = Number(b.bodyFat);
+          const thresh = Number(config.threshold);
+          if (config.operator === '<=' && bf <= thresh) count++;
+          else if (config.operator === '>=' && bf >= thresh) count++;
+        }
+      }
+    } else if (config.sourceType === 'skeletalMuscle') {
+      const b = card.basicData;
+      if (b && b.skeletalMuscle !== undefined && b.skeletalMuscle !== null && !isNaN(b.skeletalMuscle)) {
+        if (config.operator === 'recorded') {
+          count++;
+        } else if (config.threshold !== undefined) {
+          const sm = Number(b.skeletalMuscle);
+          const thresh = Number(config.threshold);
+          if (config.operator === '>=' && sm >= thresh) count++;
+          else if (config.operator === '<=' && sm <= thresh) count++;
+        }
+      }
+    } else if (config.sourceType === 'perfect') {
+      if (card.signature) count++;
+    } else if (config.sourceType === 'rating') {
+      const rating = Number(card.dayRating) || 0;
+      const thresh = config.threshold !== undefined ? Number(config.threshold) : 4;
+      if (rating >= thresh) count++;
+    }
+  });
+
+  return count;
 };
 
 interface Habit {
@@ -398,11 +489,21 @@ function App() {
   const [editKpiTitle, setEditKpiTitle] = useState('');
   const [editKpiType, setEditKpiType] = useState<'check' | 'number' | 'text'>('number');
   const [editKpiTarget, setEditKpiTarget] = useState<number | string>(10);
+  const [editKpiLinkEnabled, setEditKpiLinkEnabled] = useState(false);
+  const [editKpiLinkSource, setEditKpiLinkSource] = useState<KpiLinkConfig['sourceType']>('sleep');
+  const [editKpiLinkThreshold, setEditKpiLinkThreshold] = useState<number | string>(7.0);
+  const [editKpiLinkOperator, setEditKpiLinkOperator] = useState<'>=' | '<=' | 'recorded'>('>=');
+  const [editKpiLinkTaskName, setEditKpiLinkTaskName] = useState<string>('');
 
   const [isAddingKpi, setIsAddingKpi] = useState(false);
   const [newKpiTitle, setNewKpiTitle] = useState('');
   const [newKpiType, setNewKpiType] = useState<'check' | 'number' | 'text'>('number');
   const [newKpiTarget, setNewKpiTarget] = useState<number | string>(10);
+  const [newKpiLinkEnabled, setNewKpiLinkEnabled] = useState(false);
+  const [newKpiLinkSource, setNewKpiLinkSource] = useState<KpiLinkConfig['sourceType']>('sleep');
+  const [newKpiLinkThreshold, setNewKpiLinkThreshold] = useState<number | string>(7.0);
+  const [newKpiLinkOperator, setNewKpiLinkOperator] = useState<'>=' | '<=' | 'recorded'>('>=');
+  const [newKpiLinkTaskName, setNewKpiLinkTaskName] = useState<string>('');
 
   const [isEditingMasterTemplate, setIsEditingMasterTemplate] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'menu' | 'rewards'>('menu');
@@ -1174,17 +1275,31 @@ function App() {
     }
     const parsedTarget = typeof newKpiTarget === 'number' ? newKpiTarget : parseInt(newKpiTarget, 10);
     const targetValue = !isNaN(parsedTarget) && parsedTarget > 0 ? parsedTarget : 1;
+    const linkConfig: KpiLinkConfig | undefined = newKpiLinkEnabled ? {
+      enabled: true,
+      sourceType: newKpiLinkSource,
+      operator: newKpiLinkOperator,
+      threshold: typeof newKpiLinkThreshold === 'number' ? newKpiLinkThreshold : parseFloat(newKpiLinkThreshold as string) || 7.0,
+      taskName: newKpiLinkTaskName.trim()
+    } : undefined;
+
     const newKpi: MonthlyKpi = {
       id: `kpi-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       title: newKpiTitle.trim(),
       type: newKpiType,
       currentValue: newKpiType === 'check' ? false : newKpiType === 'number' ? 0 : '',
-      ...(newKpiType === 'number' ? { targetValue } : {})
+      ...(newKpiType === 'number' ? { targetValue } : {}),
+      linkConfig
     };
     setMonthlyKpis(prev => [...prev, newKpi]);
     setNewKpiTitle('');
     setNewKpiType('number');
     setNewKpiTarget(10);
+    setNewKpiLinkEnabled(false);
+    setNewKpiLinkSource('sleep');
+    setNewKpiLinkThreshold(7.0);
+    setNewKpiLinkOperator('>=');
+    setNewKpiLinkTaskName('');
     setIsAddingKpi(false);
   };
 
@@ -1193,6 +1308,11 @@ function App() {
     setEditKpiTitle(kpi.title);
     setEditKpiType(kpi.type);
     setEditKpiTarget(kpi.targetValue !== undefined ? kpi.targetValue : 10);
+    setEditKpiLinkEnabled(Boolean(kpi.linkConfig?.enabled));
+    setEditKpiLinkSource(kpi.linkConfig?.sourceType || 'sleep');
+    setEditKpiLinkThreshold(kpi.linkConfig?.threshold !== undefined ? kpi.linkConfig.threshold : 7.0);
+    setEditKpiLinkOperator(kpi.linkConfig?.operator || '>=');
+    setEditKpiLinkTaskName(kpi.linkConfig?.taskName || '');
   };
 
   const handleSaveEditKpi = (id: string) => {
@@ -1206,11 +1326,20 @@ function App() {
         if (kpi.type !== editKpiType) {
           newCurrentVal = editKpiType === 'check' ? false : editKpiType === 'number' ? 0 : '';
         }
+        const linkConfig: KpiLinkConfig | undefined = editKpiLinkEnabled ? {
+          enabled: true,
+          sourceType: editKpiLinkSource,
+          operator: editKpiLinkOperator,
+          threshold: typeof editKpiLinkThreshold === 'number' ? editKpiLinkThreshold : parseFloat(editKpiLinkThreshold as string) || 7.0,
+          taskName: editKpiLinkTaskName.trim()
+        } : undefined;
+
         const updated: MonthlyKpi = {
           ...kpi,
           title: editKpiTitle.trim(),
           type: editKpiType,
-          currentValue: newCurrentVal
+          currentValue: newCurrentVal,
+          linkConfig
         };
         if (editKpiType === 'number') {
           const parsedTarget = typeof editKpiTarget === 'number' ? editKpiTarget : parseInt(editKpiTarget, 10);
@@ -1554,6 +1683,30 @@ function App() {
   const renderMonthlyKpiView = () => {
     const now = new Date();
     const currentMonthDisplay = `${now.getFullYear()}年${now.getMonth() + 1}月`;
+    const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    // 当月の全カードマップ（アーカイブ済み + 現在アクティブ）
+    const monthlyCards: Record<string, any> = {};
+    (archivedCycles || []).forEach(cycle => {
+      if (cycle && cycle.cards) {
+        Object.entries(cycle.cards).forEach(([dateStr, card]) => {
+          if (dateStr.startsWith(currentYearMonth)) {
+            monthlyCards[dateStr] = card;
+          }
+        });
+      }
+    });
+    Object.entries(cards || {}).forEach(([dateStr, card]) => {
+      if (dateStr.startsWith(currentYearMonth)) {
+        monthlyCards[dateStr] = card;
+      }
+    });
+
+    // 選択可能なタスク一覧（マスターテンプレート＋現在のカードから一意抽出）
+    const availableHabitTasks: string[] = Array.from(new Set([
+      ...(masterCardTemplate || []).flatMap(c => (c.items || []).map(t => t.task).filter(Boolean)),
+      ...(categories || []).flatMap(c => (c.items || []).map(t => t.task).filter(Boolean))
+    ]));
 
     return (
       <div className="monthly-inspection-container">
@@ -1641,6 +1794,178 @@ function App() {
                           </div>
                         )}
                       </div>
+
+                      {/* 🔗 自動リンク設定 */}
+                      {editKpiType === 'number' && (
+                        <div className="kpi-link-config-box">
+                          <label className="kpi-link-toggle-label">
+                            <input
+                              type="checkbox"
+                              checked={editKpiLinkEnabled}
+                              onChange={e => setEditKpiLinkEnabled(e.target.checked)}
+                            />
+                            <span className="kpi-link-toggle-text">🔗 HABITS CARDと自動連動する</span>
+                          </label>
+
+                          {editKpiLinkEnabled && (
+                            <div className="kpi-link-details">
+                              <div className="kpi-form-field">
+                                <label className="kpi-form-label">連動データ</label>
+                                <select
+                                  className="kpi-form-select"
+                                  value={editKpiLinkSource}
+                                  onChange={e => setEditKpiLinkSource(e.target.value as any)}
+                                >
+                                  <option value="sleep">睡眠時間 (Sleeping Time)</option>
+                                  <option value="task">習慣タスク (Habit Task)</option>
+                                  <option value="weight">体重 (Weight)</option>
+                                  <option value="bodyFat">体脂肪率 (Body Fat)</option>
+                                  <option value="skeletalMuscle">骨格筋率 (Skeletal Muscle)</option>
+                                  <option value="perfect">全タスク完了 / サイン (Complete Check)</option>
+                                  <option value="rating">the day度 (Day Rating)</option>
+                                </select>
+                              </div>
+
+                              {/* 睡眠時間 */}
+                              {editKpiLinkSource === 'sleep' && (
+                                <div className="kpi-link-condition-row">
+                                  <input
+                                    type="number"
+                                    step="0.5"
+                                    className="kpi-form-input kpi-link-num-input"
+                                    value={editKpiLinkThreshold}
+                                    onChange={e => setEditKpiLinkThreshold(e.target.value)}
+                                  />
+                                  <span className="kpi-link-unit">時間</span>
+                                  <select
+                                    className="kpi-form-select kpi-link-op-select"
+                                    value={editKpiLinkOperator}
+                                    onChange={e => setEditKpiLinkOperator(e.target.value as any)}
+                                  >
+                                    <option value=">=">以上達成</option>
+                                    <option value="<=">以下</option>
+                                  </select>
+                                </div>
+                              )}
+
+                              {/* 習慣タスク */}
+                              {editKpiLinkSource === 'task' && (
+                                <div className="kpi-form-field">
+                                  <label className="kpi-form-label">対象タスクを選択</label>
+                                  <select
+                                    className="kpi-form-select"
+                                    value={editKpiLinkTaskName}
+                                    onChange={e => setEditKpiLinkTaskName(e.target.value)}
+                                  >
+                                    <option value="">-- タスクを選択 --</option>
+                                    {availableHabitTasks.map(tName => (
+                                      <option key={tName} value={tName}>{tName}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              )}
+
+                              {/* 体重 */}
+                              {editKpiLinkSource === 'weight' && (
+                                <div className="kpi-link-condition-row">
+                                  <select
+                                    className="kpi-form-select"
+                                    value={editKpiLinkOperator}
+                                    onChange={e => setEditKpiLinkOperator(e.target.value as any)}
+                                  >
+                                    <option value="<=">指定体重以下</option>
+                                    <option value=">=">指定体重以上</option>
+                                    <option value="recorded">記録した日数</option>
+                                  </select>
+                                  {editKpiLinkOperator !== 'recorded' && (
+                                    <>
+                                      <input
+                                        type="number"
+                                        step="0.1"
+                                        className="kpi-form-input kpi-link-num-input"
+                                        value={editKpiLinkThreshold}
+                                        onChange={e => setEditKpiLinkThreshold(e.target.value)}
+                                      />
+                                      <span className="kpi-link-unit">kg</span>
+                                    </>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* 体脂肪率 */}
+                              {editKpiLinkSource === 'bodyFat' && (
+                                <div className="kpi-link-condition-row">
+                                  <select
+                                    className="kpi-form-select"
+                                    value={editKpiLinkOperator}
+                                    onChange={e => setEditKpiLinkOperator(e.target.value as any)}
+                                  >
+                                    <option value="<=">指定%以下</option>
+                                    <option value=">=">指定%以上</option>
+                                    <option value="recorded">記録した日数</option>
+                                  </select>
+                                  {editKpiLinkOperator !== 'recorded' && (
+                                    <>
+                                      <input
+                                        type="number"
+                                        step="0.1"
+                                        className="kpi-form-input kpi-link-num-input"
+                                        value={editKpiLinkThreshold}
+                                        onChange={e => setEditKpiLinkThreshold(e.target.value)}
+                                      />
+                                      <span className="kpi-link-unit">%</span>
+                                    </>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* 骨格筋率 */}
+                              {editKpiLinkSource === 'skeletalMuscle' && (
+                                <div className="kpi-link-condition-row">
+                                  <select
+                                    className="kpi-form-select"
+                                    value={editKpiLinkOperator}
+                                    onChange={e => setEditKpiLinkOperator(e.target.value as any)}
+                                  >
+                                    <option value=">=">指定%以上</option>
+                                    <option value="<=">指定%以下</option>
+                                    <option value="recorded">記録した日数</option>
+                                  </select>
+                                  {editKpiLinkOperator !== 'recorded' && (
+                                    <>
+                                      <input
+                                        type="number"
+                                        step="0.1"
+                                        className="kpi-form-input kpi-link-num-input"
+                                        value={editKpiLinkThreshold}
+                                        onChange={e => setEditKpiLinkThreshold(e.target.value)}
+                                      />
+                                      <span className="kpi-link-unit">%</span>
+                                    </>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* the day度 */}
+                              {editKpiLinkSource === 'rating' && (
+                                <div className="kpi-link-condition-row">
+                                  <span className="kpi-link-unit">星</span>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    max="5"
+                                    className="kpi-form-input kpi-link-num-input"
+                                    value={editKpiLinkThreshold}
+                                    onChange={e => setEditKpiLinkThreshold(e.target.value)}
+                                  />
+                                  <span className="kpi-link-unit">個以上</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       <div className="kpi-form-actions">
                         <button 
                           type="button" 
@@ -1668,6 +1993,9 @@ function App() {
                     <div className="kpi-title-line">
                       <span className="kpi-index-tag">{String(index + 1).padStart(2, '0')}</span>
                       <span className="kpi-title-text">{kpi.title}</span>
+                      {kpi.linkConfig?.enabled && (
+                        <span className="kpi-linked-badge" title="HABITS CARDと自動連動中">🔗 AUTO</span>
+                      )}
                       {isEditMode && (
                         <span className="kpi-type-badge">{kpi.type.toUpperCase()}</span>
                       )}
@@ -1676,7 +2004,9 @@ function App() {
                     {!isEditMode && kpi.type !== 'check' && (
                       <div className="kpi-interactive-area">
                         {kpi.type === 'number' && (() => {
-                          const current = typeof kpi.currentValue === 'number' ? kpi.currentValue : 0;
+                          const isLinked = Boolean(kpi.linkConfig?.enabled);
+                          const linkedCount = isLinked ? computeLinkedKpiCount(kpi.linkConfig, monthlyCards) : 0;
+                          const current = isLinked ? linkedCount : (typeof kpi.currentValue === 'number' ? kpi.currentValue : 0);
                           const target = kpi.targetValue || 1;
                           const isCompleted = current >= target;
                           const padLen = target >= 100 ? 3 : 2;
@@ -1684,34 +2014,45 @@ function App() {
                           const targetDisplay = String(target).padStart(padLen, '0');
 
                           return (
-                            <div className={`kpi-number-controller ${isCompleted ? 'is-completed' : ''}`}>
+                            <div className={`kpi-number-controller ${isCompleted ? 'is-completed' : ''} ${isLinked ? 'is-linked' : ''}`}>
                               <div className="kpi-counter-panel">
-                                <button 
-                                  type="button"
-                                  className="kpi-counter-btn minus"
-                                  onClick={() => handleUpdateNumberKpi(kpi.id, -1)}
-                                  disabled={current <= 0}
-                                  title="1減らす"
-                                >
-                                  −
-                                </button>
+                                {!isLinked ? (
+                                  <button 
+                                    type="button"
+                                    className="kpi-counter-btn minus"
+                                    onClick={() => handleUpdateNumberKpi(kpi.id, -1)}
+                                    disabled={current <= 0}
+                                    title="1減らす"
+                                  >
+                                    −
+                                  </button>
+                                ) : (
+                                  <div className="kpi-linked-indicator" title="自動連動中（手動調整不可）">
+                                    🔗
+                                  </div>
+                                )}
                                 <div 
                                   className="kpi-counter-display"
-                                  onClick={() => handleUpdateNumberKpi(kpi.id, 1)}
-                                  title="タップで1増やす"
+                                  onClick={() => {
+                                    if (!isLinked) handleUpdateNumberKpi(kpi.id, 1);
+                                  }}
+                                  title={isLinked ? 'HABITS CARDから自動集計されています' : 'タップで1増やす'}
+                                  style={{ cursor: isLinked ? 'default' : 'pointer' }}
                                 >
                                   <span className="counter-current">{currentDisplay}</span>
                                   <span className="counter-separator">/</span>
                                   <span className="counter-target">{targetDisplay}</span>
                                 </div>
-                                <button 
-                                  type="button"
-                                  className="kpi-counter-btn plus"
-                                  onClick={() => handleUpdateNumberKpi(kpi.id, 1)}
-                                  title="1増やす"
-                                >
-                                  +
-                                </button>
+                                {!isLinked && (
+                                  <button 
+                                    type="button"
+                                    className="kpi-counter-btn plus"
+                                    onClick={() => handleUpdateNumberKpi(kpi.id, 1)}
+                                    title="1増やす"
+                                  >
+                                    +
+                                  </button>
+                                )}
                               </div>
                               {isCompleted && (
                                 <div className="kpi-goal-badge">
@@ -1837,6 +2178,178 @@ function App() {
                       </div>
                     )}
                   </div>
+
+                  {/* 🔗 自動リンク設定 */}
+                  {newKpiType === 'number' && (
+                    <div className="kpi-link-config-box">
+                      <label className="kpi-link-toggle-label">
+                        <input
+                          type="checkbox"
+                          checked={newKpiLinkEnabled}
+                          onChange={e => setNewKpiLinkEnabled(e.target.checked)}
+                        />
+                        <span className="kpi-link-toggle-text">🔗 HABITS CARDと自動連動する</span>
+                      </label>
+
+                      {newKpiLinkEnabled && (
+                        <div className="kpi-link-details">
+                          <div className="kpi-form-field">
+                            <label className="kpi-form-label">連動データ</label>
+                            <select
+                              className="kpi-form-select"
+                              value={newKpiLinkSource}
+                              onChange={e => setNewKpiLinkSource(e.target.value as any)}
+                            >
+                              <option value="sleep">睡眠時間 (Sleeping Time)</option>
+                              <option value="task">習慣タスク (Habit Task)</option>
+                              <option value="weight">体重 (Weight)</option>
+                              <option value="bodyFat">体脂肪率 (Body Fat)</option>
+                              <option value="skeletalMuscle">骨格筋率 (Skeletal Muscle)</option>
+                              <option value="perfect">全タスク完了 / サイン (Complete Check)</option>
+                              <option value="rating">the day度 (Day Rating)</option>
+                            </select>
+                          </div>
+
+                          {/* 睡眠時間 */}
+                          {newKpiLinkSource === 'sleep' && (
+                            <div className="kpi-link-condition-row">
+                              <input
+                                type="number"
+                                step="0.5"
+                                className="kpi-form-input kpi-link-num-input"
+                                value={newKpiLinkThreshold}
+                                onChange={e => setNewKpiLinkThreshold(e.target.value)}
+                              />
+                              <span className="kpi-link-unit">時間</span>
+                              <select
+                                className="kpi-form-select kpi-link-op-select"
+                                value={newKpiLinkOperator}
+                                onChange={e => setNewKpiLinkOperator(e.target.value as any)}
+                              >
+                                <option value=">=">以上達成</option>
+                                <option value="<=">以下</option>
+                              </select>
+                            </div>
+                          )}
+
+                          {/* 習慣タスク */}
+                          {newKpiLinkSource === 'task' && (
+                            <div className="kpi-form-field">
+                              <label className="kpi-form-label">対象タスクを選択</label>
+                              <select
+                                className="kpi-form-select"
+                                value={newKpiLinkTaskName}
+                                onChange={e => setNewKpiLinkTaskName(e.target.value)}
+                              >
+                                <option value="">-- タスクを選択 --</option>
+                                {availableHabitTasks.map(tName => (
+                                  <option key={tName} value={tName}>{tName}</option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+
+                          {/* 体重 */}
+                          {newKpiLinkSource === 'weight' && (
+                            <div className="kpi-link-condition-row">
+                              <select
+                                className="kpi-form-select"
+                                value={newKpiLinkOperator}
+                                onChange={e => setNewKpiLinkOperator(e.target.value as any)}
+                              >
+                                <option value="<=">指定体重以下</option>
+                                <option value=">=">指定体重以上</option>
+                                <option value="recorded">記録した日数</option>
+                              </select>
+                              {newKpiLinkOperator !== 'recorded' && (
+                                <>
+                                  <input
+                                    type="number"
+                                    step="0.1"
+                                    className="kpi-form-input kpi-link-num-input"
+                                    value={newKpiLinkThreshold}
+                                    onChange={e => setNewKpiLinkThreshold(e.target.value)}
+                                  />
+                                  <span className="kpi-link-unit">kg</span>
+                                </>
+                              )}
+                            </div>
+                          )}
+
+                          {/* 体脂肪率 */}
+                          {newKpiLinkSource === 'bodyFat' && (
+                            <div className="kpi-link-condition-row">
+                              <select
+                                className="kpi-form-select"
+                                value={newKpiLinkOperator}
+                                onChange={e => setNewKpiLinkOperator(e.target.value as any)}
+                              >
+                                <option value="<=">指定%以下</option>
+                                <option value=">=">指定%以上</option>
+                                <option value="recorded">記録した日数</option>
+                              </select>
+                              {newKpiLinkOperator !== 'recorded' && (
+                                <>
+                                  <input
+                                    type="number"
+                                    step="0.1"
+                                    className="kpi-form-input kpi-link-num-input"
+                                    value={newKpiLinkThreshold}
+                                    onChange={e => setNewKpiLinkThreshold(e.target.value)}
+                                  />
+                                  <span className="kpi-link-unit">%</span>
+                                </>
+                              )}
+                            </div>
+                          )}
+
+                          {/* 骨格筋率 */}
+                          {newKpiLinkSource === 'skeletalMuscle' && (
+                            <div className="kpi-link-condition-row">
+                              <select
+                                className="kpi-form-select"
+                                value={newKpiLinkOperator}
+                                onChange={e => setNewKpiLinkOperator(e.target.value as any)}
+                              >
+                                <option value=">=">指定%以上</option>
+                                <option value="<=">指定%以下</option>
+                                <option value="recorded">記録した日数</option>
+                              </select>
+                              {newKpiLinkOperator !== 'recorded' && (
+                                <>
+                                  <input
+                                    type="number"
+                                    step="0.1"
+                                    className="kpi-form-input kpi-link-num-input"
+                                    value={newKpiLinkThreshold}
+                                    onChange={e => setNewKpiLinkThreshold(e.target.value)}
+                                  />
+                                  <span className="kpi-link-unit">%</span>
+                                </>
+                              )}
+                            </div>
+                          )}
+
+                          {/* the day度 */}
+                          {newKpiLinkSource === 'rating' && (
+                            <div className="kpi-link-condition-row">
+                              <span className="kpi-link-unit">星</span>
+                              <input
+                                type="number"
+                                min="1"
+                                max="5"
+                                className="kpi-form-input kpi-link-num-input"
+                                value={newKpiLinkThreshold}
+                                onChange={e => setNewKpiLinkThreshold(e.target.value)}
+                              />
+                              <span className="kpi-link-unit">個以上</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="kpi-form-actions">
                     <button 
                       type="button" 
