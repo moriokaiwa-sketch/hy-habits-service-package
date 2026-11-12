@@ -594,6 +594,15 @@ function App() {
         if (data.cards) {
           lastSyncStr.current.cards = JSON.stringify(data.cards);
           setCards(data.cards);
+          // activeDate が cards に存在しない場合、今日または最新の日付に安全にフォールバック
+          setActiveDate(prevActiveDate => {
+            const dateKeys = Object.keys(data.cards).sort();
+            if (dateKeys.length === 0) return prevActiveDate;
+            if (data.cards[prevActiveDate]) return prevActiveDate;
+            const today = getTodayDate();
+            if (data.cards[today]) return today;
+            return dateKeys[dateKeys.length - 1];
+          });
         }
         if (data.templates) {
           lastSyncStr.current.templates = JSON.stringify(data.templates);
@@ -656,22 +665,29 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-  // Sync to localStorage and Firestore
+  // Sync to localStorage (immediate) and Firestore (debounced 600ms for continuous typing)
   useEffect(() => {
     const currentStr = JSON.stringify(cards);
     localStorage.setItem('cards', currentStr);
     
     if (isFirebaseLoaded && db && currentStr !== lastSyncStr.current.cards) {
-      lastSyncStr.current.cards = currentStr;
-      try {
-        const cleanPayload = JSON.parse(currentStr);
-        updateDoc(doc(db, 'appData', 'sharedState'), { cards: cleanPayload }).catch((e) => {
-          if (e.code === 'not-found') setDoc(doc(db!, 'appData', 'sharedState'), { cards: cleanPayload });
-          else console.error(e);
-        });
-      } catch (err) {
-        console.error("Firestore sync error for cards:", err);
-      }
+      const timer = setTimeout(async () => {
+        try {
+          const cleanPayload = JSON.parse(currentStr);
+          await updateDoc(doc(db!, 'appData', 'sharedState'), { cards: cleanPayload }).catch(async (e) => {
+            if (e.code === 'not-found') {
+              await setDoc(doc(db!, 'appData', 'sharedState'), { cards: cleanPayload });
+            } else {
+              throw e;
+            }
+          });
+          lastSyncStr.current.cards = currentStr;
+        } catch (err) {
+          console.error("Firestore sync error for cards:", err);
+        }
+      }, 600);
+
+      return () => clearTimeout(timer);
     }
   }, [cards, isFirebaseLoaded]);
 
@@ -680,17 +696,20 @@ function App() {
     localStorage.setItem('archivedCycles', currentStr);
     
     if (isFirebaseLoaded && db && currentStr !== lastSyncStr.current.archivedCycles) {
-      lastSyncStr.current.archivedCycles = currentStr;
       try {
         const cleanPayload = JSON.parse(currentStr);
-        setDoc(doc(db, 'appData', 'sharedState'), { archivedCycles: cleanPayload }, { merge: true }).catch((err) => {
-          console.error("Firestore sync error for archivedCycles:", err);
-          if (err && (err.code === 'resource-exhausted' || err.message?.includes('exceeds maximum allowed size'))) {
-            alert("⚠️ データベース容量の制限によりアーカイブの同期に失敗しました。管理者に確認してください。");
-          }
-        });
+        setDoc(doc(db, 'appData', 'sharedState'), { archivedCycles: cleanPayload }, { merge: true })
+          .then(() => {
+            lastSyncStr.current.archivedCycles = currentStr;
+          })
+          .catch((err) => {
+            console.error("Firestore sync error for archivedCycles:", err);
+            if (err && (err.code === 'resource-exhausted' || err.message?.includes('exceeds maximum allowed size'))) {
+              alert("⚠️ データベース容量の制限によりアーカイブの同期に失敗しました。管理者に確認してください。");
+            }
+          });
       } catch (err) {
-        console.error("Firestore sync error for archivedCycles:", err);
+        console.error("Firestore serialization error for archivedCycles:", err);
       }
     }
   }, [archivedCycles, isFirebaseLoaded]);
@@ -700,13 +719,20 @@ function App() {
     localStorage.setItem('masterCardTemplate', currentStr);
     
     if (isFirebaseLoaded && db && currentStr !== lastSyncStr.current.masterCardTemplate) {
-      lastSyncStr.current.masterCardTemplate = currentStr;
       try {
         const cleanPayload = JSON.parse(currentStr);
-        updateDoc(doc(db, 'appData', 'sharedState'), { masterCardTemplate: cleanPayload }).catch((e) => {
-          if (e.code === 'not-found') setDoc(doc(db!, 'appData', 'sharedState'), { masterCardTemplate: cleanPayload });
-          else console.error(e);
-        });
+        updateDoc(doc(db, 'appData', 'sharedState'), { masterCardTemplate: cleanPayload })
+          .then(() => {
+            lastSyncStr.current.masterCardTemplate = currentStr;
+          })
+          .catch(async (e) => {
+            if (e.code === 'not-found') {
+              await setDoc(doc(db!, 'appData', 'sharedState'), { masterCardTemplate: cleanPayload });
+              lastSyncStr.current.masterCardTemplate = currentStr;
+            } else {
+              console.error("Firestore sync error for masterCardTemplate:", e);
+            }
+          });
       } catch (err) {
         console.error("Firestore sync error for masterCardTemplate:", err);
       }
@@ -746,13 +772,20 @@ function App() {
     localStorage.setItem('monthlyKpis', currentStr);
     
     if (isFirebaseLoaded && db && currentStr !== lastSyncStr.current.monthlyKpis) {
-      lastSyncStr.current.monthlyKpis = currentStr;
       try {
         const cleanPayload = JSON.parse(currentStr);
-        updateDoc(doc(db, 'appData', 'sharedState'), { monthlyKpis: cleanPayload }).catch((e) => {
-          if (e.code === 'not-found') setDoc(doc(db!, 'appData', 'sharedState'), { monthlyKpis: cleanPayload });
-          else console.error("Firestore sync error for monthlyKpis:", e);
-        });
+        updateDoc(doc(db, 'appData', 'sharedState'), { monthlyKpis: cleanPayload })
+          .then(() => {
+            lastSyncStr.current.monthlyKpis = currentStr;
+          })
+          .catch(async (e) => {
+            if (e.code === 'not-found') {
+              await setDoc(doc(db!, 'appData', 'sharedState'), { monthlyKpis: cleanPayload });
+              lastSyncStr.current.monthlyKpis = currentStr;
+            } else {
+              console.error("Firestore sync error for monthlyKpis:", e);
+            }
+          });
       } catch (err) {
         console.error("Firestore serialization error for monthlyKpis:", err);
       }
@@ -980,13 +1013,20 @@ function App() {
     localStorage.setItem('templates', currentStr);
     
     if (isFirebaseLoaded && db && currentStr !== lastSyncStr.current.templates) {
-      lastSyncStr.current.templates = currentStr;
       try {
         const cleanPayload = JSON.parse(currentStr);
-        updateDoc(doc(db, 'appData', 'sharedState'), { templates: cleanPayload }).catch((e) => {
-          if (e.code === 'not-found') setDoc(doc(db!, 'appData', 'sharedState'), { templates: cleanPayload });
-          else console.error(e);
-        });
+        updateDoc(doc(db, 'appData', 'sharedState'), { templates: cleanPayload })
+          .then(() => {
+            lastSyncStr.current.templates = currentStr;
+          })
+          .catch(async (e) => {
+            if (e.code === 'not-found') {
+              await setDoc(doc(db!, 'appData', 'sharedState'), { templates: cleanPayload });
+              lastSyncStr.current.templates = currentStr;
+            } else {
+              console.error("Firestore sync error for templates:", e);
+            }
+          });
       } catch (err) {
         console.error("Firestore sync error for templates:", err);
       }
@@ -1283,7 +1323,7 @@ function App() {
       const newCycle = {
         cycleId,
         timestamp: Date.now(),
-        cards: cards
+        cards: { ...cards }
       };
       const updatedCycles = [...archivedCycles, newCycle];
 
@@ -1295,6 +1335,8 @@ function App() {
             archivedCycles: cleanCycles,
             cards: {}
           }, { merge: true });
+          lastSyncStr.current.archivedCycles = JSON.stringify(cleanCycles);
+          lastSyncStr.current.cards = JSON.stringify({});
         } catch (err: any) {
           console.error("Archive sync error:", err);
           alert("アーカイブの保存中にエラーが発生しました: " + (err?.message || String(err)) + "\n現在のカードは保護されています。");
