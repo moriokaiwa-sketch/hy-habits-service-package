@@ -2255,9 +2255,9 @@ input:checked + .slider:before {
 }
 
 .basic-data-label-cell {
-  flex: 0 0 auto;
-  min-width: fit-content;
-  padding: 0.75rem 0.75rem;
+  flex: 1;
+  min-width: 0;
+  padding: 0.75rem 0.85rem;
   border-right: 2px solid var(--border-color, #1a1a1a);
   display: flex;
   align-items: center;
@@ -2275,8 +2275,10 @@ input:checked + .slider:before {
 }
 
 .basic-data-value-cell {
-  flex: 1;
-  min-width: 0;
+  flex: 0 0 155px;
+  width: 155px;
+  min-width: 155px;
+  max-width: 155px;
   padding: 0.5rem 0.5rem;
   display: flex;
   align-items: center;
@@ -2287,7 +2289,7 @@ input:checked + .slider:before {
   -webkit-tap-highlight-color: transparent;
   font-family: var(--font-mono, monospace);
   position: relative;
-  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .basic-data-value-cell:hover:not(.is-readonly) {
@@ -2310,7 +2312,7 @@ input:checked + .slider:before {
   display: flex;
   align-items: baseline;
   justify-content: center;
-  gap: 0.3rem;
+  gap: 0.25rem;
   flex-wrap: nowrap;
   text-align: center;
   white-space: nowrap;
@@ -2318,7 +2320,7 @@ input:checked + .slider:before {
 
 .basic-data-range-text {
   font-weight: 700;
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   color: #1a1a1a;
   letter-spacing: 0.02em;
   white-space: nowrap;
@@ -2326,7 +2328,7 @@ input:checked + .slider:before {
 
 .basic-data-duration-badge {
   font-weight: 700;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   color: #008744;
   white-space: nowrap;
 }
@@ -2347,41 +2349,30 @@ input:checked + .slider:before {
   white-space: nowrap;
 }
 
-.basic-data-tap-hint {
-  font-size: 0.65rem;
-  color: #666;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  border: 1px dashed #aaa;
-  padding: 0.05rem 0.35rem;
-  white-space: nowrap;
-}
-
 @media (max-width: 420px) {
   .basic-data-label-cell {
-    padding: 0.65rem 0.5rem;
+    padding: 0.65rem 0.6rem;
     font-size: 0.82rem;
   }
 
   .basic-data-value-cell {
-    padding: 0.5rem 0.35rem;
+    flex: 0 0 148px;
+    width: 148px;
+    min-width: 148px;
+    max-width: 148px;
+    padding: 0.5rem 0.25rem;
   }
 
   .basic-data-range-text {
-    font-size: 0.8rem;
+    font-size: 0.78rem;
   }
 
   .basic-data-duration-badge {
-    font-size: 0.75rem;
+    font-size: 0.74rem;
   }
 
   .basic-data-placeholder-time {
     font-size: 0.76rem;
-  }
-
-  .basic-data-tap-hint {
-    font-size: 0.6rem;
-    padding: 0.04rem 0.25rem;
   }
 }
 
