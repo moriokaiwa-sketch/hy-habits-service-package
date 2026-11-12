@@ -1707,14 +1707,14 @@ function App() {
               <p>アーカイブされたサイクルはありません。</p>
             </div>
           ) : (
-            Object.keys(groupedByMonth).sort().reverse().map(monthStr => {
+            Object.keys(groupedByMonth).sort().map(monthStr => {
               const [, month] = monthStr.split('-');
               const monthLabel = `${parseInt(month, 10)}月`; // "6月"
               
               return (
                 <div key={monthStr} className="archive-month-group">
                   <div className="archive-month-title">{monthLabel}</div>
-                  {[...groupedByMonth[monthStr]].reverse().map(({ cycle }) => {
+                  {groupedByMonth[monthStr].map(({ cycle }) => {
                     const dates = Object.keys(cycle.cards || {}).sort();
                     return (
                       <div key={cycle.cycleId} className="archive-shift-group">
