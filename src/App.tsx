@@ -269,9 +269,9 @@ const getShiftClass = (shift: string): string => {
 
 const formatNoteDate = (dateStr: string, shift?: string) => {
   const parts = dateStr.split('-');
-  const mmdd = parts.length >= 3 ? `${parts[1]}/${parts[2]}` : dateStr;
+  const day = parts.length >= 3 ? parseInt(parts[2], 10) : dateStr;
   const s = shift ? formatShift(shift) : '';
-  return s ? `${mmdd} (${s})` : mmdd;
+  return s ? `${day} (${s})` : `${day}`;
 };
 
 const getMonthlyNewThingsList = (monthlyCards: Record<string, any>): { dateStr: string; shift: string; text: string }[] => {
