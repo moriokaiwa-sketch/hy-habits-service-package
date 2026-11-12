@@ -622,38 +622,19 @@ function App() {
           lastSyncStr.current.monthlyKpis = JSON.stringify(sanitizedKpis);
           setMonthlyKpis(sanitizedKpis);
         }
-        if (data.archivedCycles) {
+        if (data.archivedCycles && Array.isArray(data.archivedCycles)) {
           setArchivedCycles(prev => {
-            const merged = [...prev];
-            const existingIds = new Set(prev.map(c => c.cycleId));
-            let changed = false;
-            data.archivedCycles.forEach((c: any) => {
-              if (!existingIds.has(c.cycleId)) {
-                merged.push(c);
-                changed = true;
-              }
-            });
+            const firestoreIds = new Set(data.archivedCycles.map((c: any) => c.cycleId));
+            const localOnly = prev.filter((c: any) => !firestoreIds.has(c.cycleId));
             
-            // Check if local storage has any historical items that Firebase is missing
-            const firebaseIds = new Set((data.archivedCycles || []).map((c: any) => c.cycleId));
-            const localHasExtra = prev.some(c => !firebaseIds.has(c.cycleId));
-            
-            if (changed) {
-              merged.sort((a, b) => a.timestamp - b.timestamp);
-              if (!localHasExtra) {
-                lastSyncStr.current.archivedCycles = JSON.stringify(merged);
-              } else {
-                // Local contributed extra items, force useEffect to upload the complete merged list to Firebase
-                lastSyncStr.current.archivedCycles = "force_upload";
-              }
-              return merged;
-            } else if (!localHasExtra && prev.length === data.archivedCycles.length) {
-              lastSyncStr.current.archivedCycles = JSON.stringify(data.archivedCycles);
-            } else if (localHasExtra || prev.length > data.archivedCycles.length) {
-              // Local has items not in Firebase, force useEffect to upload
+            if (localOnly.length > 0) {
+              const combined = [...data.archivedCycles, ...localOnly].sort((a, b) => a.timestamp - b.timestamp);
               lastSyncStr.current.archivedCycles = "force_upload";
+              return combined;
+            } else {
+              lastSyncStr.current.archivedCycles = JSON.stringify(data.archivedCycles);
+              return data.archivedCycles;
             }
-            return prev;
           });
         }
       }
