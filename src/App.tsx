@@ -1392,6 +1392,17 @@ function App() {
     }));
   };
 
+  const handleKpiDragEnd = (result: DropResult) => {
+    const { source, destination } = result;
+    if (!destination) return;
+    if (source.index === destination.index) return;
+
+    const newKpis = Array.from(monthlyKpis);
+    const [reorderedItem] = newKpis.splice(source.index, 1);
+    newKpis.splice(destination.index, 0, reorderedItem);
+    setMonthlyKpis(newKpis);
+  };
+
   const handleLoadFromMaster = () => {
     try {
       const safeTemplate = sanitizeCategories(masterCardTemplate);
@@ -1739,13 +1750,32 @@ function App() {
             </span>
           </div>
 
-          <div className="kpi-items-list">
-            {monthlyKpis.map((kpi, index) => {
-              const isEditingThis = isEditMode && editingKpiId === kpi.id;
+          <DragDropContext onDragEnd={handleKpiDragEnd}>
+            <Droppable droppableId="kpi-items-droppable" isDropDisabled={!isEditMode}>
+              {(provided) => (
+                <div 
+                  className="kpi-items-list"
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
+                >
+                  {monthlyKpis.map((kpi, index) => {
+                    const isEditingThis = isEditMode && editingKpiId === kpi.id;
 
-              if (isEditingThis) {
-                return (
-                  <div key={kpi.id} className="kpi-edit-form-card">
+                    return (
+                      <Draggable
+                        key={kpi.id}
+                        draggableId={kpi.id}
+                        index={index}
+                        isDragDisabled={!isEditMode || isEditingThis}
+                      >
+                        {(provided, snapshot) => {
+                          if (isEditingThis) {
+                            return (
+                              <div 
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                className="kpi-edit-form-card"
+                              >
                     <div className="kpi-edit-form-header">
                       <span className="kpi-edit-badge">EDIT KPI #{index + 1}</span>
                     </div>
@@ -1987,150 +2017,173 @@ function App() {
                 );
               }
 
-              return (
-                <div key={kpi.id} className={`kpi-row-item kpi-type-${kpi.type} ${isEditMode ? 'in-edit-mode' : ''}`}>
-                  <div className="kpi-main-content">
-                    <div className="kpi-title-line">
-                      <span className="kpi-title-text">{kpi.title}</span>
-                      {kpi.linkConfig?.enabled && (
-                        <span className="kpi-linked-badge" title="HABITS CARDと自動連動中">🔗 AUTO</span>
-                      )}
-                      {isEditMode && (
-                        <span className="kpi-type-badge">{kpi.type.toUpperCase()}</span>
-                      )}
-                    </div>
+                          return (
+                            <div 
+                              key={kpi.id} 
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              className={`kpi-row-item kpi-type-${kpi.type} ${isEditMode ? 'in-edit-mode' : ''} ${snapshot.isDragging ? 'is-dragging' : ''}`}
+                            >
+                              {isEditMode && (
+                                <div 
+                                  className="drag-handle kpi-drag-handle"
+                                  {...provided.dragHandleProps}
+                                  title="ドラッグして並び替え"
+                                >
+                                  ☰
+                                </div>
+                              )}
 
-                    {!isEditMode && kpi.type === 'text' && (
-                      <div className="kpi-interactive-area">
-                        <div className="kpi-text-area-wrapper">
-                          <textarea
-                            className="kpi-textarea"
-                            placeholder="読んだ本、観た映画、気付きなどを記録..."
-                            value={typeof kpi.currentValue === 'string' ? kpi.currentValue : ''}
-                            onChange={(e) => {
-                              handleTextKpiChange(kpi.id, e.target.value);
-                              e.target.style.height = 'auto';
-                              e.target.style.height = `${e.target.scrollHeight}px`;
-                            }}
-                            ref={(el) => {
-                              if (el) {
-                                el.style.height = 'auto';
-                                el.style.height = `${Math.max(60, el.scrollHeight)}px`;
-                              }
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
+                              <div className="kpi-main-content">
+                                <div className="kpi-title-line">
+                                  <span className="kpi-title-text">{kpi.title}</span>
+                                  {kpi.linkConfig?.enabled && (
+                                    <span className="kpi-linked-badge" title="HABITS CARDと自動連動中">🔗 AUTO</span>
+                                  )}
+                                  {isEditMode && (
+                                    <span className="kpi-type-badge">{kpi.type.toUpperCase()}</span>
+                                  )}
+                                </div>
 
-                    {isEditMode && kpi.type === 'number' && (
-                      <div className="kpi-target-preview">
-                        Target: <strong>{kpi.targetValue || 0}</strong>
-                      </div>
-                    )}
-                  </div>
+                                {!isEditMode && kpi.type === 'text' && (
+                                  <div className="kpi-interactive-area">
+                                    <div className="kpi-text-area-wrapper">
+                                      <textarea
+                                        className="kpi-textarea"
+                                        placeholder="読んだ本、観た映画、気付きなどを記録..."
+                                        value={typeof kpi.currentValue === 'string' ? kpi.currentValue : ''}
+                                        onChange={(e) => {
+                                          handleTextKpiChange(kpi.id, e.target.value);
+                                          e.target.style.height = 'auto';
+                                          e.target.style.height = `${e.target.scrollHeight}px`;
+                                        }}
+                                        ref={(el) => {
+                                          if (el) {
+                                            el.style.height = 'auto';
+                                            el.style.height = `${Math.max(60, el.scrollHeight)}px`;
+                                          }
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                )}
 
-                  {/* Check Type Stamp Cell (Same as Habits Card done-cell) */}
-                  {!isEditMode && kpi.type === 'check' && (
-                    <div 
-                      className="kpi-stamp-cell done-cell"
-                      onClick={() => handleToggleCheckKpi(kpi.id)}
-                      title="タップで済スタンプを切り替え"
-                    >
-                      {kpi.currentValue && <div className="stamp">済</div>}
-                    </div>
-                  )}
+                                {isEditMode && kpi.type === 'number' && (
+                                  <div className="kpi-target-preview">
+                                    Target: <strong>{kpi.targetValue || 0}</strong>
+                                  </div>
+                                )}
+                              </div>
 
-                  {/* Number Type Counter Cell (Aligned to right like done-cell) */}
-                  {!isEditMode && kpi.type === 'number' && (() => {
-                    const isLinked = Boolean(kpi.linkConfig?.enabled);
-                    const linkedCount = isLinked ? computeLinkedKpiCount(kpi.linkConfig, monthlyCards) : 0;
-                    const current = isLinked ? linkedCount : (typeof kpi.currentValue === 'number' ? kpi.currentValue : 0);
-                    const target = kpi.targetValue || 1;
-                    const isCompleted = current >= target;
-                    const padLen = target >= 100 ? 3 : 2;
-                    const currentDisplay = String(current).padStart(padLen, '0');
-                    const targetDisplay = String(target).padStart(padLen, '0');
+                              {/* Check Type Stamp Cell (Same as Habits Card done-cell) */}
+                              {!isEditMode && kpi.type === 'check' && (
+                                <div 
+                                  className="kpi-stamp-cell done-cell"
+                                  onClick={() => handleToggleCheckKpi(kpi.id)}
+                                  title="タップで済スタンプを切り替え"
+                                >
+                                  {kpi.currentValue && <div className="stamp">済</div>}
+                                </div>
+                              )}
 
-                    return (
-                      <div 
-                        className={`kpi-number-cell done-cell ${isCompleted ? 'is-completed' : ''} ${isLinked ? 'is-linked' : ''}`}
-                        title={isLinked ? 'HABITS CARDから自動集計中（手動調整不可）' : undefined}
-                      >
-                        {!isLinked && (
-                          <button
-                            type="button"
-                            className="kpi-cell-btn minus"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleUpdateNumberKpi(kpi.id, -1);
-                            }}
-                            disabled={current <= 0}
-                            title="1減らす"
-                          >
-                            −
-                          </button>
-                        )}
+                              {/* Number Type Counter Cell (Aligned to right like done-cell) */}
+                              {!isEditMode && kpi.type === 'number' && (() => {
+                                const isLinked = Boolean(kpi.linkConfig?.enabled);
+                                const linkedCount = isLinked ? computeLinkedKpiCount(kpi.linkConfig, monthlyCards) : 0;
+                                const current = isLinked ? linkedCount : (typeof kpi.currentValue === 'number' ? kpi.currentValue : 0);
+                                const target = kpi.targetValue || 1;
+                                const isCompleted = current >= target;
+                                const padLen = target >= 100 ? 3 : 2;
+                                const currentDisplay = String(current).padStart(padLen, '0');
+                                const targetDisplay = String(target).padStart(padLen, '0');
 
-                        <div 
-                          className="kpi-cell-value-display"
-                          onClick={() => {
-                            if (!isLinked) handleUpdateNumberKpi(kpi.id, 1);
-                          }}
-                          title={isLinked ? 'HABITS CARDから自動集計中' : 'タップで1増やす'}
-                          style={{ cursor: isLinked ? 'default' : 'pointer' }}
-                        >
-                          <span className="counter-current">{currentDisplay}</span>
-                          <span className="counter-separator">/</span>
-                          <span className="counter-target">{targetDisplay}</span>
-                        </div>
+                                return (
+                                  <div 
+                                    className={`kpi-number-cell done-cell ${isCompleted ? 'is-completed' : ''} ${isLinked ? 'is-linked' : ''}`}
+                                    title={isLinked ? 'HABITS CARDから自動集計中（手動調整不可）' : undefined}
+                                  >
+                                    {!isLinked && (
+                                      <button
+                                        type="button"
+                                        className="kpi-cell-btn minus"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleUpdateNumberKpi(kpi.id, -1);
+                                        }}
+                                        disabled={current <= 0}
+                                        title="1減らす"
+                                      >
+                                        −
+                                      </button>
+                                    )}
 
-                        {!isLinked && (
-                          <button
-                            type="button"
-                            className="kpi-cell-btn plus"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleUpdateNumberKpi(kpi.id, 1);
-                            }}
-                            title="1増やす"
-                          >
-                            +
-                          </button>
-                        )}
+                                    <div 
+                                      className="kpi-cell-value-display"
+                                      onClick={() => {
+                                        if (!isLinked) handleUpdateNumberKpi(kpi.id, 1);
+                                      }}
+                                      title={isLinked ? 'HABITS CARDから自動集計中' : 'タップで1増やす'}
+                                      style={{ cursor: isLinked ? 'default' : 'pointer' }}
+                                    >
+                                      <span className="counter-current">{currentDisplay}</span>
+                                      <span className="counter-separator">/</span>
+                                      <span className="counter-target">{targetDisplay}</span>
+                                    </div>
 
-                        {isCompleted && (
-                          <div className="stamp kpi-bg-stamp" title="目標達成！">
-                            済
-                          </div>
-                        )}
-                      </div>
+                                    {!isLinked && (
+                                      <button
+                                        type="button"
+                                        className="kpi-cell-btn plus"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleUpdateNumberKpi(kpi.id, 1);
+                                        }}
+                                        title="1増やす"
+                                      >
+                                        +
+                                      </button>
+                                    )}
+
+                                    {isCompleted && (
+                                      <div className="stamp kpi-bg-stamp" title="目標達成！">
+                                        済
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+
+                              {isEditMode && (
+                                <div className="kpi-action-buttons">
+                                  <button 
+                                    type="button"
+                                    className="kpi-action-btn edit"
+                                    onClick={() => handleStartEditKpi(kpi)}
+                                    title="Edit KPI"
+                                  >
+                                    ⚙️
+                                  </button>
+                                  <button 
+                                    type="button"
+                                    className="kpi-action-btn delete"
+                                    onClick={() => handleDeleteKpi(kpi.id, kpi.title)}
+                                    title="Delete KPI"
+                                  >
+                                    🗑️
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }}
+                      </Draggable>
                     );
-                  })()}
-
-                  {isEditMode && (
-                    <div className="kpi-action-buttons">
-                      <button 
-                        type="button"
-                        className="kpi-action-btn edit"
-                        onClick={() => handleStartEditKpi(kpi)}
-                        title="Edit KPI"
-                      >
-                        ⚙️
-                      </button>
-                      <button 
-                        type="button"
-                        className="kpi-action-btn delete"
-                        onClick={() => handleDeleteKpi(kpi.id, kpi.title)}
-                        title="Delete KPI"
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  )}
+                  })}
+                  {provided.placeholder}
                 </div>
-              );
-            })}
+              )}
+            </Droppable>
+          </DragDropContext>
 
             {isEditMode && isAddingKpi && (
               <div className="kpi-edit-form-card new-kpi-form">
@@ -2390,7 +2443,6 @@ function App() {
                 </button>
               </div>
             )}
-          </div>
         </div>
       </div>
     );
