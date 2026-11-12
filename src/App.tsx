@@ -244,21 +244,43 @@ const computeLinkedKpiCount = (config: KpiLinkConfig | undefined, monthlyCards: 
   return count;
 };
 
-const formatNoteDate = (dateStr: string) => {
-  const parts = dateStr.split('-');
-  if (parts.length < 3) return dateStr;
-  const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const dayName = days[d.getDay()] || '';
-  return `${parts[1]}/${parts[2]} (${dayName})`;
+const SHIFTS = ["D", "S", "N", "/", "H"];
+
+const formatShift = (shift: string): string => {
+  if (!shift) return '';
+  const s = String(shift).trim();
+  if (s === 'D' || s.includes('日勤')) return 'D';
+  if (s === 'S' || s.includes('遅番')) return 'S';
+  if (s === '/' || s.includes('夜勤明け') || s.includes('明け')) return '/';
+  if (s === 'N' || s.includes('夜勤')) return 'N';
+  if (s === 'H' || s.includes('休日') || s.includes('休')) return 'H';
+  return s;
 };
 
-const getMonthlyNewThingsList = (monthlyCards: Record<string, any>): { dateStr: string; text: string }[] => {
+const getShiftClass = (shift: string): string => {
+  const s = formatShift(shift);
+  if (s === 'D') return 'shift-D';
+  if (s === 'S') return 'shift-S';
+  if (s === 'N') return 'shift-N';
+  if (s === '/') return 'shift-slash';
+  if (s === 'H') return 'shift-H';
+  return '';
+};
+
+const formatNoteDate = (dateStr: string, shift?: string) => {
+  const parts = dateStr.split('-');
+  const mmdd = parts.length >= 3 ? `${parts[1]}/${parts[2]}` : dateStr;
+  const s = shift ? formatShift(shift) : '';
+  return s ? `${mmdd} (${s})` : mmdd;
+};
+
+const getMonthlyNewThingsList = (monthlyCards: Record<string, any>): { dateStr: string; shift: string; text: string }[] => {
   return Object.entries(monthlyCards)
     .filter(([_, card]) => card && typeof card.newThings === 'string' && card.newThings.trim().length > 0)
     .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
     .map(([dateStr, card]) => ({
       dateStr,
+      shift: formatShift(card.currentShift || ''),
       text: card.newThings.trim()
     }));
 };
@@ -355,29 +377,6 @@ function sanitizeCategories(raw: any): Category[] {
     };
   });
 }
-
-const SHIFTS = ["D", "S", "N", "/", "H"];
-
-const formatShift = (shift: string): string => {
-  if (!shift) return '';
-  const s = String(shift).trim();
-  if (s === 'D' || s.includes('日勤')) return 'D';
-  if (s === 'S' || s.includes('遅番')) return 'S';
-  if (s === '/' || s.includes('夜勤明け') || s.includes('明け')) return '/';
-  if (s === 'N' || s.includes('夜勤')) return 'N';
-  if (s === 'H' || s.includes('休日') || s.includes('休')) return 'H';
-  return s;
-};
-
-const getShiftClass = (shift: string): string => {
-  const s = formatShift(shift);
-  if (s === 'D') return 'shift-D';
-  if (s === 'S') return 'shift-S';
-  if (s === 'N') return 'shift-N';
-  if (s === '/') return 'shift-slash';
-  if (s === 'H') return 'shift-H';
-  return '';
-};
 
 function App() {
   const [isEditMode, setIsEditMode] = useState(false);
@@ -2112,7 +2111,7 @@ function App() {
                                           {newThingsList.length > 0 ? (
                                             newThingsList.map(item => (
                                               <div key={item.dateStr} className="kpi-transcribed-item">
-                                                <span className="kpi-transcribed-date">{formatNoteDate(item.dateStr)}</span>
+                                                <span className="kpi-transcribed-date">{formatNoteDate(item.dateStr, item.shift)}</span>
                                                 <span className="kpi-transcribed-text">{item.text}</span>
                                               </div>
                                             ))
