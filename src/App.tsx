@@ -91,7 +91,7 @@ const StarIcon = ({ filled, onClick }: { filled: boolean, onClick: () => void })
 
 export interface KpiLinkConfig {
   enabled: boolean;
-  sourceType: 'sleep' | 'task' | 'weight' | 'bodyFat' | 'skeletalMuscle' | 'perfect' | 'rating';
+  sourceType: 'sleep' | 'task' | 'weight' | 'bodyFat' | 'skeletalMuscle' | 'perfect' | 'rating' | 'newThings';
   operator?: '>=' | '<=' | 'recorded';
   threshold?: number;
   taskName?: string;
@@ -234,10 +234,42 @@ const computeLinkedKpiCount = (config: KpiLinkConfig | undefined, monthlyCards: 
       const rating = Number(card.dayRating) || 0;
       const thresh = config.threshold !== undefined ? Number(config.threshold) : 4;
       if (rating >= thresh) count++;
+    } else if (config.sourceType === 'newThings') {
+      if (card.newThings && typeof card.newThings === 'string' && card.newThings.trim().length > 0) {
+        count++;
+      }
     }
   });
 
   return count;
+};
+
+const formatNoteDate = (dateStr: string) => {
+  const parts = dateStr.split('-');
+  if (parts.length < 3) return dateStr;
+  const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const dayName = days[d.getDay()] || '';
+  return `${parts[1]}/${parts[2]} (${dayName})`;
+};
+
+const getMonthlyNewThingsList = (monthlyCards: Record<string, any>): { dateStr: string; text: string }[] => {
+  return Object.entries(monthlyCards)
+    .filter(([_, card]) => card && typeof card.newThings === 'string' && card.newThings.trim().length > 0)
+    .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+    .map(([dateStr, card]) => ({
+      dateStr,
+      text: card.newThings.trim()
+    }));
+};
+
+const isKpiLinkedToNewThings = (kpi: MonthlyKpi): boolean => {
+  if (kpi.linkConfig?.enabled && kpi.linkConfig.sourceType === 'newThings') {
+    return true;
+  }
+  if (kpi.linkConfig?.enabled === false) return false;
+  const t = (kpi.title || '').trim().toLowerCase();
+  return t.includes('new things') || t.includes('newthings') || t.includes('新しいこと') || t.includes('新体験');
 };
 
 interface Habit {
@@ -1826,13 +1858,19 @@ function App() {
                       </div>
 
                       {/* 🔗 自動リンク設定 */}
-                      {editKpiType === 'number' && (
+                      {(editKpiType === 'number' || editKpiType === 'text') && (
                         <div className="kpi-link-config-box">
                           <label className="kpi-link-toggle-label">
                             <input
                               type="checkbox"
                               checked={editKpiLinkEnabled}
-                              onChange={e => setEditKpiLinkEnabled(e.target.checked)}
+                              onChange={e => {
+                                const checked = e.target.checked;
+                                setEditKpiLinkEnabled(checked);
+                                if (checked && editKpiType === 'text') {
+                                  setEditKpiLinkSource('newThings');
+                                }
+                              }}
                             />
                             <span className="kpi-link-toggle-text">🔗 HABITS CARDと自動連動する</span>
                           </label>
@@ -1846,15 +1884,31 @@ function App() {
                                   value={editKpiLinkSource}
                                   onChange={e => setEditKpiLinkSource(e.target.value as any)}
                                 >
-                                  <option value="sleep">睡眠時間 (Sleeping Time)</option>
-                                  <option value="task">習慣タスク (Habit Task)</option>
-                                  <option value="weight">体重 (Weight)</option>
-                                  <option value="bodyFat">体脂肪率 (Body Fat)</option>
-                                  <option value="skeletalMuscle">骨格筋率 (Skeletal Muscle)</option>
-                                  <option value="perfect">全タスク完了 / サイン (Complete Check)</option>
-                                  <option value="rating">the day度 (Day Rating)</option>
+                                  {editKpiType === 'text' ? (
+                                    <option value="newThings">サインオフノート (NEW THINGS)</option>
+                                  ) : (
+                                    <>
+                                      <option value="sleep">睡眠時間 (Sleeping Time)</option>
+                                      <option value="task">習慣タスク (Habit Task)</option>
+                                      <option value="weight">体重 (Weight)</option>
+                                      <option value="bodyFat">体脂肪率 (Body Fat)</option>
+                                      <option value="skeletalMuscle">骨格筋率 (Skeletal Muscle)</option>
+                                      <option value="perfect">全タスク完了 / サイン (Complete Check)</option>
+                                      <option value="rating">the day度 (Day Rating)</option>
+                                      <option value="newThings">NEW THINGS (記録した日数)</option>
+                                    </>
+                                  )}
                                 </select>
                               </div>
+
+                              {/* NEW THINGS 説明文 */}
+                              {editKpiLinkSource === 'newThings' && (
+                                <div className="kpi-link-desc-hint">
+                                  {editKpiType === 'text'
+                                    ? '※ HABITS CARDのサインオフノート（NEW THINGS）に記入した内容が日付順でここに自動転記されます。'
+                                    : '※ 当月にNEW THINGSが記入された日数を自動集計します。'}
+                                </div>
+                              )}
 
                               {/* 睡眠時間 */}
                               {editKpiLinkSource === 'sleep' && (
@@ -2037,36 +2091,84 @@ function App() {
                               <div className="kpi-main-content">
                                 <div className="kpi-title-line">
                                   <span className="kpi-title-text">{kpi.title}</span>
-                                  {kpi.linkConfig?.enabled && (
-                                    <span className="kpi-linked-badge" title="HABITS CARDと自動連動中">🔗 AUTO</span>
+                                  {(kpi.linkConfig?.enabled || isKpiLinkedToNewThings(kpi)) && (
+                                    <span className="kpi-linked-badge" title="HABITS CARDと自動連動中">
+                                      🔗 AUTO{isKpiLinkedToNewThings(kpi) ? ' (NEW THINGS)' : ''}
+                                    </span>
                                   )}
                                   {isEditMode && (
                                     <span className="kpi-type-badge">{kpi.type.toUpperCase()}</span>
                                   )}
                                 </div>
 
-                                {!isEditMode && kpi.type === 'text' && (
-                                  <div className="kpi-interactive-area">
-                                    <div className="kpi-text-area-wrapper">
-                                      <textarea
-                                        className="kpi-textarea"
-                                        placeholder="読んだ本、観た映画、気付きなどを記録..."
-                                        value={typeof kpi.currentValue === 'string' ? kpi.currentValue : ''}
-                                        onChange={(e) => {
-                                          handleTextKpiChange(kpi.id, e.target.value);
-                                          e.target.style.height = 'auto';
-                                          e.target.style.height = `${e.target.scrollHeight}px`;
-                                        }}
-                                        ref={(el) => {
-                                          if (el) {
-                                            el.style.height = 'auto';
-                                            el.style.height = `${Math.max(60, el.scrollHeight)}px`;
-                                          }
-                                        }}
-                                      />
+                                {!isEditMode && kpi.type === 'text' && (() => {
+                                  const isLinkedNewThings = isKpiLinkedToNewThings(kpi);
+
+                                  if (isLinkedNewThings) {
+                                    const newThingsList = getMonthlyNewThingsList(monthlyCards);
+                                    return (
+                                      <div className="kpi-interactive-area kpi-linked-new-things-area">
+                                        <div className="kpi-transcribed-list">
+                                          {newThingsList.length > 0 ? (
+                                            newThingsList.map(item => (
+                                              <div key={item.dateStr} className="kpi-transcribed-item">
+                                                <span className="kpi-transcribed-date">{formatNoteDate(item.dateStr)}</span>
+                                                <span className="kpi-transcribed-text">{item.text}</span>
+                                              </div>
+                                            ))
+                                          ) : (
+                                            <div className="kpi-transcribed-empty">
+                                              <span>※ HABITS CARDのサインオフノート（NEW THINGS）に記入した内容がここに自動で転記されます</span>
+                                            </div>
+                                          )}
+                                        </div>
+
+                                        {/* 自由追記メモ欄 */}
+                                        <div className="kpi-text-area-wrapper" style={{ marginTop: '0.5rem' }}>
+                                          <textarea
+                                            className="kpi-textarea kpi-sub-textarea"
+                                            placeholder="月次総括・振り返りメモ（任意入力）..."
+                                            value={typeof kpi.currentValue === 'string' ? kpi.currentValue : ''}
+                                            onChange={(e) => {
+                                              handleTextKpiChange(kpi.id, e.target.value);
+                                              e.target.style.height = 'auto';
+                                              e.target.style.height = `${e.target.scrollHeight}px`;
+                                            }}
+                                            ref={(el) => {
+                                              if (el) {
+                                                el.style.height = 'auto';
+                                                el.style.height = `${Math.max(48, el.scrollHeight)}px`;
+                                              }
+                                            }}
+                                          />
+                                        </div>
+                                      </div>
+                                    );
+                                  }
+
+                                  return (
+                                    <div className="kpi-interactive-area">
+                                      <div className="kpi-text-area-wrapper">
+                                        <textarea
+                                          className="kpi-textarea"
+                                          placeholder="読んだ本、観た映画、気付きなどを記録..."
+                                          value={typeof kpi.currentValue === 'string' ? kpi.currentValue : ''}
+                                          onChange={(e) => {
+                                            handleTextKpiChange(kpi.id, e.target.value);
+                                            e.target.style.height = 'auto';
+                                            e.target.style.height = `${e.target.scrollHeight}px`;
+                                          }}
+                                          ref={(el) => {
+                                            if (el) {
+                                              el.style.height = 'auto';
+                                              el.style.height = `${Math.max(60, el.scrollHeight)}px`;
+                                            }
+                                          }}
+                                        />
+                                      </div>
                                     </div>
-                                  </div>
-                                )}
+                                  );
+                                })()}
 
                                 {isEditMode && kpi.type === 'number' && (
                                   <div className="kpi-target-preview">
@@ -2237,13 +2339,19 @@ function App() {
                   </div>
 
                   {/* 🔗 自動リンク設定 */}
-                  {newKpiType === 'number' && (
+                  {(newKpiType === 'number' || newKpiType === 'text') && (
                     <div className="kpi-link-config-box">
                       <label className="kpi-link-toggle-label">
                         <input
                           type="checkbox"
                           checked={newKpiLinkEnabled}
-                          onChange={e => setNewKpiLinkEnabled(e.target.checked)}
+                          onChange={e => {
+                            const checked = e.target.checked;
+                            setNewKpiLinkEnabled(checked);
+                            if (checked && newKpiType === 'text') {
+                              setNewKpiLinkSource('newThings');
+                            }
+                          }}
                         />
                         <span className="kpi-link-toggle-text">🔗 HABITS CARDと自動連動する</span>
                       </label>
@@ -2257,15 +2365,31 @@ function App() {
                               value={newKpiLinkSource}
                               onChange={e => setNewKpiLinkSource(e.target.value as any)}
                             >
-                              <option value="sleep">睡眠時間 (Sleeping Time)</option>
-                              <option value="task">習慣タスク (Habit Task)</option>
-                              <option value="weight">体重 (Weight)</option>
-                              <option value="bodyFat">体脂肪率 (Body Fat)</option>
-                              <option value="skeletalMuscle">骨格筋率 (Skeletal Muscle)</option>
-                              <option value="perfect">全タスク完了 / サイン (Complete Check)</option>
-                              <option value="rating">the day度 (Day Rating)</option>
+                              {newKpiType === 'text' ? (
+                                <option value="newThings">サインオフノート (NEW THINGS)</option>
+                              ) : (
+                                <>
+                                  <option value="sleep">睡眠時間 (Sleeping Time)</option>
+                                  <option value="task">習慣タスク (Habit Task)</option>
+                                  <option value="weight">体重 (Weight)</option>
+                                  <option value="bodyFat">体脂肪率 (Body Fat)</option>
+                                  <option value="skeletalMuscle">骨格筋率 (Skeletal Muscle)</option>
+                                  <option value="perfect">全タスク完了 / サイン (Complete Check)</option>
+                                  <option value="rating">the day度 (Day Rating)</option>
+                                  <option value="newThings">NEW THINGS (記録した日数)</option>
+                                </>
+                              )}
                             </select>
                           </div>
+
+                          {/* NEW THINGS 説明文 */}
+                          {newKpiLinkSource === 'newThings' && (
+                            <div className="kpi-link-desc-hint">
+                              {newKpiType === 'text'
+                                ? '※ HABITS CARDのサインオフノート（NEW THINGS）に記入した内容が日付順でここに自動転記されます。'
+                                : '※ 当月にNEW THINGSが記入された日数を自動集計します。'}
+                            </div>
+                          )}
 
                           {/* 睡眠時間 */}
                           {newKpiLinkSource === 'sleep' && (
