@@ -117,36 +117,36 @@
 .date-tab {
   flex: 1;
   padding: 0.5rem 0;
-  border: 2px solid var(--text-color);
-  background: var(--text-color);
-  color: var(--bg-color);
+  border: 2px solid var(--text-color, #1a1a1a);
+  background-color: var(--text-color, #1a1a1a);
+  color: #fff;
   font-family: inherit;
   font-weight: bold;
   font-size: 0.9rem;
   border-radius: 8px 8px 0 0;
   cursor: pointer;
-  opacity: 0.75;
   border-bottom: none;
   transition: all 0.2s;
 }
 
 .date-tab:hover:not(.active) {
-  opacity: 0.9;
+  opacity: 0.85;
 }
 
 .date-tab.active {
-  opacity: 1;
-  background: var(--bg-color);
-  color: var(--text-color);
+  background-color: var(--bg-color);
+  color: var(--text-color, #1a1a1a);
+  border: 2px solid var(--text-color, #1a1a1a);
+  border-bottom: none;
 }
 
 .date-tab-add-btn {
   flex: 0 0 2.6rem;
   width: 2.6rem;
   padding: 0.5rem 0;
-  border: 2px solid var(--text-color);
-  background: var(--text-color);
-  color: var(--bg-color);
+  border: 2px solid var(--text-color, #1a1a1a);
+  background-color: var(--text-color, #1a1a1a);
+  color: #fff;
   font-family: inherit;
   font-weight: bold;
   font-size: 1.2rem;
@@ -160,11 +160,10 @@
   transition: all 0.15s ease;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  opacity: 0.75;
 }
 
 .date-tab-add-btn:hover {
-  opacity: 1;
+  opacity: 0.85;
 }
 
 .date-tab-add-btn:active {
