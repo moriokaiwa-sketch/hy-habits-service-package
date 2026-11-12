@@ -429,11 +429,9 @@ function App() {
   const getTodayDate = () => getDateString(0);
 
   const formatDateLabel = (dateStr: string) => {
-    if (dateStr === getDateString(0)) return '今日';
-    if (dateStr === getDateString(1)) return '明日';
     const parts = dateStr.split('-');
     if (parts.length === 3) {
-      return `${parseInt(parts[1])}/${parseInt(parts[2])}`;
+      return `${parts[1]}/${parts[2]}`;
     }
     return dateStr;
   };
