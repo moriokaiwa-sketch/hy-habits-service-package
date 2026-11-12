@@ -3520,14 +3520,6 @@ function App() {
       {/* Fixed Bottom Navigation */}
       <nav className="bottom-nav">
         <button 
-          className={`bottom-nav-item ${!isKpiView && !isArchiveView && !isArchiveListOpen && !isSettingsModalOpen && !viewingArchivedCycle && !isEditingMasterTemplate ? 'active' : ''}`}
-          onClick={handleNavCard}
-          title="HABITS CARD"
-        >
-          <span className="bottom-nav-icon">📋</span>
-          <span className="bottom-nav-label">CARD</span>
-        </button>
-        <button 
           className={`bottom-nav-item ${isKpiView && !isArchiveView && !isArchiveListOpen && !isSettingsModalOpen && !viewingArchivedCycle && !isEditingMasterTemplate ? 'active' : ''}`}
           onClick={handleNavKpi}
           title="MONTHLY INSPECTION"
@@ -3542,6 +3534,14 @@ function App() {
         >
           <span className="bottom-nav-icon">📁</span>
           <span className="bottom-nav-label">ARCHIVE</span>
+        </button>
+        <button 
+          className={`bottom-nav-item ${!isKpiView && !isArchiveView && !isArchiveListOpen && !isSettingsModalOpen && !viewingArchivedCycle && !isEditingMasterTemplate ? 'active' : ''}`}
+          onClick={handleNavCard}
+          title="HABITS CARD"
+        >
+          <span className="bottom-nav-icon">📋</span>
+          <span className="bottom-nav-label">CARD</span>
         </button>
         <button 
           className={`bottom-nav-item ${isSettingsModalOpen || isEditingMasterTemplate ? 'active' : ''}`}
