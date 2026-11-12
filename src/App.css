@@ -1771,17 +1771,6 @@ input:checked + .slider:before {
   flex-wrap: wrap;
 }
 
-.kpi-index-tag {
-  font-family: var(--font-mono, monospace);
-  font-size: 0.75rem;
-  font-weight: 800;
-  background-color: #e2e8f0;
-  color: var(--text-color, #1a1a1a);
-  padding: 0.15rem 0.4rem;
-  border: 1px solid var(--text-color, #1a1a1a);
-  line-height: 1;
-}
-
 .kpi-title-text {
   font-size: 0.95rem;
   font-weight: 700;

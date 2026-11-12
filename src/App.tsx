@@ -1991,7 +1991,6 @@ function App() {
                 <div key={kpi.id} className={`kpi-row-item kpi-type-${kpi.type} ${isEditMode ? 'in-edit-mode' : ''}`}>
                   <div className="kpi-main-content">
                     <div className="kpi-title-line">
-                      <span className="kpi-index-tag">{String(index + 1).padStart(2, '0')}</span>
                       <span className="kpi-title-text">{kpi.title}</span>
                       {kpi.linkConfig?.enabled && (
                         <span className="kpi-linked-badge" title="HABITS CARDと自動連動中">🔗 AUTO</span>
