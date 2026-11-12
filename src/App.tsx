@@ -122,9 +122,10 @@ const defaultMonthlyKpis: MonthlyKpi[] = [
 export interface BasicData {
   sleepStart?: string;     // 例: "21:00"
   sleepEnd?: string;       // 例: "06:00"
-  weight?: number;         // 将来拡張用: 体重 (kg)
-  bodyFat?: number;        // 将来拡張用: 体脂肪率 (%)
-  skeletalMuscle?: number; // 将来拡張用: 骨格筋率 (%)
+  weight?: number;         // 体重 (kg)
+  bodyFat?: number;        // 体脂肪率 (%)
+  skeletalMuscle?: number; // 骨格筋率 (%)
+  skippedFields?: string[]; // スキップされたフィールド ('sleep' | 'weight' | 'bodyFat' | 'skeletalMuscle')
 }
 
 const calculateSleepDuration = (start?: string, end?: string) => {
@@ -719,6 +720,43 @@ function App() {
     setTempSleepEnd(basicData.sleepEnd || '07:00');
     setIsSleepModalOpen(true);
   };
+
+  const [isBodyModalOpen, setIsBodyModalOpen] = useState(false);
+  const [tempWeight, setTempWeight] = useState('');
+  const [tempBodyFat, setTempBodyFat] = useState('');
+  const [tempSkeletalMuscle, setTempSkeletalMuscle] = useState('');
+
+  const weightInputRef = useRef<HTMLInputElement>(null);
+  const bodyFatInputRef = useRef<HTMLInputElement>(null);
+  const skeletalMuscleInputRef = useRef<HTMLInputElement>(null);
+
+  const openBodyModal = (targetField?: 'weight' | 'bodyFat' | 'skeletalMuscle') => {
+    if (viewingArchivedCycle || isEditingMasterTemplate) return;
+    setTempWeight(basicData.weight !== undefined && basicData.weight !== null ? String(basicData.weight) : '');
+    setTempBodyFat(basicData.bodyFat !== undefined && basicData.bodyFat !== null ? String(basicData.bodyFat) : '');
+    setTempSkeletalMuscle(basicData.skeletalMuscle !== undefined && basicData.skeletalMuscle !== null ? String(basicData.skeletalMuscle) : '');
+    setIsBodyModalOpen(true);
+
+    setTimeout(() => {
+      if (targetField === 'weight' && weightInputRef.current) {
+        weightInputRef.current.focus();
+      } else if (targetField === 'bodyFat' && bodyFatInputRef.current) {
+        bodyFatInputRef.current.focus();
+      } else if (targetField === 'skeletalMuscle' && skeletalMuscleInputRef.current) {
+        skeletalMuscleInputRef.current.focus();
+      }
+    }, 100);
+  };
+
+  const toggleBasicDataSkipped = (field: string) => {
+    if (viewingArchivedCycle || isEditingMasterTemplate) return;
+    const currentSkipped = basicData.skippedFields || [];
+    const isCurrentlySkipped = currentSkipped.includes(field);
+    const newSkipped = isCurrentlySkipped
+      ? currentSkipped.filter(f => f !== field)
+      : [...currentSkipped, field];
+    setBasicData({ skippedFields: newSkipped });
+  };
   
   const [rewardImageUrls, setRewardImageUrls] = useState(() => localStorage.getItem('rewardImageUrls') || '');
   const [isFetchingReward, setIsFetchingReward] = useState(false);
@@ -780,9 +818,21 @@ function App() {
     }
   }, [categories, isEditMode, currentShift, isEditingMasterTemplate]);
 
-  const isSleepDone = Boolean(basicData.sleepStart && basicData.sleepEnd);
-  const totalTasks = categories.reduce((sum, cat) => sum + (Array.isArray(cat?.items) ? cat.items.length : 0), 0) + (isEditingMasterTemplate ? 0 : 1);
-  const completedOrSkippedTasks = categories.reduce((sum, cat) => sum + (Array.isArray(cat?.items) ? cat.items.filter(t => t?.isDone || t?.isSkipped).length : 0), 0) + (isEditingMasterTemplate ? 0 : (isSleepDone ? 1 : 0));
+  const isSleepDone = Boolean(basicData.sleepStart && basicData.sleepEnd) || Boolean(basicData.skippedFields?.includes('sleep'));
+  const isWeightDone = (basicData.weight !== undefined && basicData.weight !== null && !isNaN(basicData.weight)) || Boolean(basicData.skippedFields?.includes('weight'));
+  const isBodyFatDone = (basicData.bodyFat !== undefined && basicData.bodyFat !== null && !isNaN(basicData.bodyFat)) || Boolean(basicData.skippedFields?.includes('bodyFat'));
+  const isMuscleDone = (basicData.skeletalMuscle !== undefined && basicData.skeletalMuscle !== null && !isNaN(basicData.skeletalMuscle)) || Boolean(basicData.skippedFields?.includes('skeletalMuscle'));
+
+  const basicDataTotal = isEditingMasterTemplate ? 0 : 4;
+  const basicDataCompleted = isEditingMasterTemplate ? 0 : (
+    (isSleepDone ? 1 : 0) +
+    (isWeightDone ? 1 : 0) +
+    (isBodyFatDone ? 1 : 0) +
+    (isMuscleDone ? 1 : 0)
+  );
+
+  const totalTasks = categories.reduce((sum, cat) => sum + (Array.isArray(cat?.items) ? cat.items.length : 0), 0) + basicDataTotal;
+  const completedOrSkippedTasks = categories.reduce((sum, cat) => sum + (Array.isArray(cat?.items) ? cat.items.filter(t => t?.isDone || t?.isSkipped).length : 0), 0) + basicDataCompleted;
   const isAllTasksCompleted = totalTasks > 0 && totalTasks === completedOrSkippedTasks;
 
   useEffect(() => {
@@ -1379,10 +1429,12 @@ function App() {
       });
 
       if (card.basicData !== undefined) {
-        total++;
-        if (card.basicData.sleepStart && card.basicData.sleepEnd) {
-          done++;
-        }
+        const b = card.basicData;
+        total += 4;
+        if ((b.sleepStart && b.sleepEnd) || b.skippedFields?.includes('sleep')) done++;
+        if ((b.weight !== undefined && b.weight !== null && !isNaN(b.weight)) || b.skippedFields?.includes('weight')) done++;
+        if ((b.bodyFat !== undefined && b.bodyFat !== null && !isNaN(b.bodyFat)) || b.skippedFields?.includes('bodyFat')) done++;
+        if ((b.skeletalMuscle !== undefined && b.skeletalMuscle !== null && !isNaN(b.skeletalMuscle)) || b.skippedFields?.includes('skeletalMuscle')) done++;
       }
 
       if (total === 0) {
@@ -2075,14 +2127,20 @@ function App() {
             <span>BASIC DATA</span>
             <span className="basic-data-header-tag">FIXED</span>
           </div>
+          {/* 1. 睡眠時間 */}
           <div className="basic-data-row">
             <div className="basic-data-label-cell">
               <span className="basic-data-item-title">Sleeping Time</span>
             </div>
             <div 
-              className={`basic-data-value-cell ${isSleepDone ? 'is-done' : 'is-empty'} ${viewingArchivedCycle ? 'is-readonly' : ''}`}
+              className={`basic-data-value-cell ${isSleepDone ? 'is-done' : 'is-empty'} ${viewingArchivedCycle ? 'is-readonly' : ''} ${basicData.skippedFields?.includes('sleep') ? 'is-skipped' : ''}`}
               onClick={openSleepModal}
-              title={viewingArchivedCycle ? '睡眠時間' : 'タップして睡眠時間を記録'}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                if (viewingArchivedCycle) return;
+                if (window.confirm("睡眠時間の項目をスキップ/解除しますか？")) toggleBasicDataSkipped('sleep');
+              }}
+              title={viewingArchivedCycle ? '睡眠時間' : 'タップして睡眠時間を記録（右クリック/長押しでスキップ）'}
             >
               {(() => {
                 const sleepInfo = calculateSleepDuration(basicData.sleepStart, basicData.sleepEnd);
@@ -2094,13 +2152,99 @@ function App() {
                     </div>
                   );
                 }
+                if (basicData.skippedFields?.includes('sleep')) {
+                  return <div className="slash-line"></div>;
+                }
                 return (
                   <div className="basic-data-placeholder-wrapper">
                     <span className="basic-data-placeholder-time">--:-- - --:--</span>
-                    {!viewingArchivedCycle && <span className="basic-data-tap-hint">TAP TO SET</span>}
                   </div>
                 );
               })()}
+            </div>
+          </div>
+
+          {/* 2. 体重 */}
+          <div className="basic-data-row">
+            <div className="basic-data-label-cell">
+              <span className="basic-data-item-title">Weight</span>
+            </div>
+            <div 
+              className={`basic-data-value-cell ${isWeightDone ? 'is-done' : 'is-empty'} ${viewingArchivedCycle ? 'is-readonly' : ''} ${basicData.skippedFields?.includes('weight') ? 'is-skipped' : ''}`}
+              onClick={() => openBodyModal('weight')}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                if (viewingArchivedCycle) return;
+                if (window.confirm("体重の項目をスキップ/解除しますか？")) toggleBasicDataSkipped('weight');
+              }}
+              title={viewingArchivedCycle ? '体重' : 'タップして体重を記録（右クリック/長押しでスキップ）'}
+            >
+              {basicData.weight !== undefined && basicData.weight !== null && !isNaN(basicData.weight) ? (
+                <div className="basic-data-numeric-wrapper">
+                  <span className="basic-data-numeric-value">{Number(basicData.weight).toFixed(1)}</span>
+                  <span className="basic-data-numeric-unit">kg</span>
+                </div>
+              ) : basicData.skippedFields?.includes('weight') ? (
+                <div className="slash-line"></div>
+              ) : (
+                <span className="basic-data-placeholder-time">--.- kg</span>
+              )}
+            </div>
+          </div>
+
+          {/* 3. 体脂肪率 */}
+          <div className="basic-data-row">
+            <div className="basic-data-label-cell">
+              <span className="basic-data-item-title">Body Fat</span>
+            </div>
+            <div 
+              className={`basic-data-value-cell ${isBodyFatDone ? 'is-done' : 'is-empty'} ${viewingArchivedCycle ? 'is-readonly' : ''} ${basicData.skippedFields?.includes('bodyFat') ? 'is-skipped' : ''}`}
+              onClick={() => openBodyModal('bodyFat')}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                if (viewingArchivedCycle) return;
+                if (window.confirm("体脂肪率の項目をスキップ/解除しますか？")) toggleBasicDataSkipped('bodyFat');
+              }}
+              title={viewingArchivedCycle ? '体脂肪率' : 'タップして体脂肪率を記録（右クリック/長押しでスキップ）'}
+            >
+              {basicData.bodyFat !== undefined && basicData.bodyFat !== null && !isNaN(basicData.bodyFat) ? (
+                <div className="basic-data-numeric-wrapper">
+                  <span className="basic-data-numeric-value">{Number(basicData.bodyFat).toFixed(1)}</span>
+                  <span className="basic-data-numeric-unit">%</span>
+                </div>
+              ) : basicData.skippedFields?.includes('bodyFat') ? (
+                <div className="slash-line"></div>
+              ) : (
+                <span className="basic-data-placeholder-time">--.- %</span>
+              )}
+            </div>
+          </div>
+
+          {/* 4. 骨格筋率 */}
+          <div className="basic-data-row">
+            <div className="basic-data-label-cell">
+              <span className="basic-data-item-title">Skeletal Muscle</span>
+            </div>
+            <div 
+              className={`basic-data-value-cell ${isMuscleDone ? 'is-done' : 'is-empty'} ${viewingArchivedCycle ? 'is-readonly' : ''} ${basicData.skippedFields?.includes('skeletalMuscle') ? 'is-skipped' : ''}`}
+              onClick={() => openBodyModal('skeletalMuscle')}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                if (viewingArchivedCycle) return;
+                if (window.confirm("骨格筋率の項目をスキップ/解除しますか？")) toggleBasicDataSkipped('skeletalMuscle');
+              }}
+              title={viewingArchivedCycle ? '骨格筋率' : 'タップして骨格筋率を記録（右クリック/長押しでスキップ）'}
+            >
+              {basicData.skeletalMuscle !== undefined && basicData.skeletalMuscle !== null && !isNaN(basicData.skeletalMuscle) ? (
+                <div className="basic-data-numeric-wrapper">
+                  <span className="basic-data-numeric-value">{Number(basicData.skeletalMuscle).toFixed(1)}</span>
+                  <span className="basic-data-numeric-unit">%</span>
+                </div>
+              ) : basicData.skippedFields?.includes('skeletalMuscle') ? (
+                <div className="slash-line"></div>
+              ) : (
+                <span className="basic-data-placeholder-time">--.- %</span>
+              )}
             </div>
           </div>
         </div>
@@ -2720,6 +2864,111 @@ function App() {
                     if (window.confirm("睡眠時間の記録を解除しますか？")) {
                       setBasicData({ sleepStart: undefined, sleepEnd: undefined });
                       setIsSleepModalOpen(false);
+                    }
+                  }}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isBodyModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsBodyModalOpen(false)}>
+          <div className="modal-content sleep-modal-content" onClick={e => e.stopPropagation()}>
+            <div className="sleep-modal-header">
+              <h3 className="modal-title">BODY DATA</h3>
+              <button 
+                type="button" 
+                className="sleep-modal-close-icon"
+                onClick={() => setIsBodyModalOpen(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="body-simple-inputs">
+              <div className="body-simple-row">
+                <span className="body-simple-label">体重</span>
+                <div className="body-simple-input-wrapper">
+                  <input
+                    ref={weightInputRef}
+                    type="number"
+                    step="0.1"
+                    inputMode="decimal"
+                    placeholder="--.-"
+                    className="body-simple-number-input"
+                    value={tempWeight}
+                    onChange={e => setTempWeight(e.target.value)}
+                  />
+                  <span className="body-simple-unit">kg</span>
+                </div>
+              </div>
+
+              <div className="body-simple-row">
+                <span className="body-simple-label">体脂肪率</span>
+                <div className="body-simple-input-wrapper">
+                  <input
+                    ref={bodyFatInputRef}
+                    type="number"
+                    step="0.1"
+                    inputMode="decimal"
+                    placeholder="--.-"
+                    className="body-simple-number-input"
+                    value={tempBodyFat}
+                    onChange={e => setTempBodyFat(e.target.value)}
+                  />
+                  <span className="body-simple-unit">%</span>
+                </div>
+              </div>
+
+              <div className="body-simple-row">
+                <span className="body-simple-label">骨格筋率</span>
+                <div className="body-simple-input-wrapper">
+                  <input
+                    ref={skeletalMuscleInputRef}
+                    type="number"
+                    step="0.1"
+                    inputMode="decimal"
+                    placeholder="--.-"
+                    className="body-simple-number-input"
+                    value={tempSkeletalMuscle}
+                    onChange={e => setTempSkeletalMuscle(e.target.value)}
+                  />
+                  <span className="body-simple-unit">%</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="sleep-simple-actions" style={{ marginTop: '1.5rem' }}>
+              <button 
+                type="button"
+                className="done-btn sleep-simple-save-btn" 
+                onClick={() => {
+                  const w = tempWeight.trim() !== '' ? parseFloat(tempWeight) : undefined;
+                  const bf = tempBodyFat.trim() !== '' ? parseFloat(tempBodyFat) : undefined;
+                  const sm = tempSkeletalMuscle.trim() !== '' ? parseFloat(tempSkeletalMuscle) : undefined;
+                  setBasicData({
+                    weight: (w !== undefined && !isNaN(w)) ? w : undefined,
+                    bodyFat: (bf !== undefined && !isNaN(bf)) ? bf : undefined,
+                    skeletalMuscle: (sm !== undefined && !isNaN(sm)) ? sm : undefined
+                  });
+                  setIsBodyModalOpen(false);
+                }}
+              >
+                SET
+              </button>
+
+              {(basicData.weight !== undefined || basicData.bodyFat !== undefined || basicData.skeletalMuscle !== undefined) && (
+                <button
+                  type="button"
+                  className="sleep-simple-clear-btn"
+                  onClick={() => {
+                    if (window.confirm("身体データの記録を解除しますか？")) {
+                      setBasicData({ weight: undefined, bodyFat: undefined, skeletalMuscle: undefined });
+                      setIsBodyModalOpen(false);
                     }
                   }}
                 >

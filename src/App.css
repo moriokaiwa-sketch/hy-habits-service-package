@@ -2206,7 +2206,12 @@ input:checked + .slider:before {
   display: flex;
   align-items: stretch;
   background-color: var(--row-bg, #fff);
-  min-height: 56px;
+  min-height: 54px;
+  border-bottom: 1px solid var(--border-color, #1a1a1a);
+}
+
+.basic-data-row:last-child {
+  border-bottom: none;
 }
 
 .basic-data-label-cell {
@@ -2465,4 +2470,93 @@ input:checked + .slider:before {
 
 .sleep-simple-clear-btn:hover {
   color: #d32f2f;
+}
+
+/* ==========================================================================
+   Body Data Styles (Ultra Minimal)
+   ========================================================================== */
+.basic-data-numeric-wrapper {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.25rem;
+  white-space: nowrap;
+}
+
+.basic-data-numeric-value {
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: #1a1a1a;
+  letter-spacing: 0.02em;
+}
+
+.basic-data-numeric-unit {
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.basic-data-value-cell.is-skipped {
+  background-color: #e0e0e0;
+}
+
+.body-simple-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  margin: 0.5rem 0;
+}
+
+.body-simple-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.body-simple-label {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #555;
+  white-space: nowrap;
+  width: 75px;
+}
+
+.body-simple-input-wrapper {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+.body-simple-number-input {
+  border: none;
+  border-bottom: 2px solid #1a1a1a;
+  background: transparent;
+  padding: 0.2rem 0.25rem;
+  font-family: var(--font-mono, monospace);
+  font-size: 1.35rem;
+  font-weight: 800;
+  text-align: right;
+  color: #1a1a1a;
+  border-radius: 0;
+  width: 95px;
+  box-sizing: border-box;
+  -webkit-appearance: none;
+}
+
+.body-simple-number-input::placeholder {
+  color: #bbb;
+  font-weight: 400;
+}
+
+.body-simple-unit {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #666;
+  width: 25px;
+  text-align: left;
 }
