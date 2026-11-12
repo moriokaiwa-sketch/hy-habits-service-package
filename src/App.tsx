@@ -294,6 +294,45 @@ const isKpiLinkedToNewThings = (kpi: MonthlyKpi): boolean => {
   return t.includes('new things') || t.includes('newthings') || t.includes('新しいこと') || t.includes('新体験');
 };
 
+const sanitizeLoadedKpi = (kpi: any): MonthlyKpi => {
+  const item: MonthlyKpi = {
+    id: String(kpi.id || `kpi-${Date.now()}`),
+    title: String(kpi.title || ''),
+    type: (kpi.type === 'check' || kpi.type === 'text' || kpi.type === 'number') ? kpi.type : 'number',
+    currentValue: kpi.currentValue !== undefined ? kpi.currentValue : (kpi.type === 'number' ? 0 : kpi.type === 'check' ? false : ''),
+    ...(kpi.type === 'number' && typeof kpi.targetValue === 'number' && !Number.isNaN(kpi.targetValue) ? { targetValue: kpi.targetValue } : {})
+  };
+
+  if (kpi.linkConfig && kpi.linkConfig.enabled) {
+    item.linkConfig = {
+      enabled: true,
+      sourceType: kpi.linkConfig.sourceType,
+      ...(kpi.linkConfig.operator ? { operator: kpi.linkConfig.operator } : {}),
+      ...(kpi.linkConfig.threshold !== undefined && !Number.isNaN(Number(kpi.linkConfig.threshold)) ? { threshold: Number(kpi.linkConfig.threshold) } : {}),
+      ...(kpi.linkConfig.taskName ? { taskName: String(kpi.linkConfig.taskName) } : {}),
+      ...(kpi.linkConfig.ratingThreshold !== undefined ? { ratingThreshold: Number(kpi.linkConfig.ratingThreshold) } : {})
+    };
+  } else {
+    // 過去の保存バグで linkConfig が消失していた場合の自動救済・復元
+    const t = item.title.toLowerCase();
+    if (t.includes('睡眠') || t.includes('sleep')) {
+      item.linkConfig = {
+        enabled: true,
+        sourceType: 'sleep',
+        operator: '>=',
+        threshold: 7.0
+      };
+    } else if (t.includes('new things') || t.includes('newthings') || t.includes('新しいこと') || t.includes('新体験')) {
+      item.linkConfig = {
+        enabled: true,
+        sourceType: 'newThings'
+      };
+    }
+  }
+
+  return item;
+};
+
 interface Habit {
   id: string;
   task: string;
@@ -506,13 +545,13 @@ function App() {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          return parsed.map(sanitizeLoadedKpi);
         }
       } catch (e) {
         console.error(e);
       }
     }
-    return defaultMonthlyKpis;
+    return defaultMonthlyKpis.map(sanitizeLoadedKpi);
   });
 
   const [isKpiView, setIsKpiView] = useState(false);
@@ -571,8 +610,9 @@ function App() {
           setRewardImageUrls(data.rewardImageUrls);
         }
         if (data.monthlyKpis && Array.isArray(data.monthlyKpis)) {
-          lastSyncStr.current.monthlyKpis = JSON.stringify(data.monthlyKpis);
-          setMonthlyKpis(data.monthlyKpis);
+          const sanitizedKpis = data.monthlyKpis.map(sanitizeLoadedKpi);
+          lastSyncStr.current.monthlyKpis = JSON.stringify(sanitizedKpis);
+          setMonthlyKpis(sanitizedKpis);
         }
         if (data.archivedCycles) {
           setArchivedCycles(prev => {
@@ -684,6 +724,21 @@ function App() {
       };
       if (kpi.type === 'number' && typeof kpi.targetValue === 'number' && !Number.isNaN(kpi.targetValue)) {
         obj.targetValue = kpi.targetValue;
+      }
+      if (kpi.linkConfig && kpi.linkConfig.enabled) {
+        const linkObj: any = {
+          enabled: true,
+          sourceType: kpi.linkConfig.sourceType
+        };
+        if (kpi.linkConfig.operator) linkObj.operator = kpi.linkConfig.operator;
+        if (kpi.linkConfig.threshold !== undefined && !Number.isNaN(Number(kpi.linkConfig.threshold))) {
+          linkObj.threshold = Number(kpi.linkConfig.threshold);
+        }
+        if (kpi.linkConfig.taskName) linkObj.taskName = String(kpi.linkConfig.taskName);
+        if (kpi.linkConfig.ratingThreshold !== undefined) {
+          linkObj.ratingThreshold = Number(kpi.linkConfig.ratingThreshold);
+        }
+        obj.linkConfig = linkObj;
       }
       return obj;
     });
