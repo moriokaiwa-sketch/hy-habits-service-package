@@ -1498,6 +1498,14 @@ function App() {
                             const dayNum = parseInt(dateStr.split('-')[2], 10);
                             const shiftClass = getShiftClass(c?.currentShift || '');
                             const heatClass = getHeatClass(c);
+                            const rating = Number(c?.dayRating) || 0;
+                            const hasNotes = Boolean(
+                              c?.newThings?.trim() || 
+                              c?.momentOfTheDay?.trim() || 
+                              c?.appreciate?.trim() || 
+                              c?.signOffNote?.trim()
+                            );
+
                             return (
                               <div 
                                 key={dateStr} 
@@ -1510,7 +1518,23 @@ function App() {
                                   setIsEditMode(false); // Force execution mode UI for read-only
                                 }}
                               >
+                                {rating > 0 && (
+                                  <div className="archive-card-stars" title={`the day度: ${rating}`}>
+                                    {Array.from({ length: Math.min(rating, 5) }).map((_, i) => (
+                                      <span key={i} className="archive-card-star">★</span>
+                                    ))}
+                                  </div>
+                                )}
+
                                 <div className="archive-card-date">{dayNum}</div>
+
+                                {hasNotes && (
+                                  <div className="archive-card-pencil" title="メモあり">
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                                    </svg>
+                                  </div>
+                                )}
                               </div>
                             );
                           })}
