@@ -2663,95 +2663,69 @@ function App() {
                 ✕
               </button>
             </div>
-            <p className="modal-subtitle">入眠時刻と起床時刻を入力してください</p>
 
-            <div className="sleep-input-container">
-              <div className="sleep-input-card">
-                <span className="sleep-field-label">BEDTIME (入眠)</span>
+            <div className="sleep-simple-inputs">
+              <div className="sleep-simple-col">
+                <span className="sleep-simple-label">入眠</span>
                 <input
                   type="time"
-                  className="sleep-native-time-input"
+                  className="sleep-simple-time-input"
                   value={tempSleepStart}
                   onChange={e => setTempSleepStart(e.target.value)}
                 />
               </div>
 
-              <div className="sleep-arrow-divider">➔</div>
+              <span className="sleep-simple-tilde">〜</span>
 
-              <div className="sleep-input-card">
-                <span className="sleep-field-label">WAKE UP (起床)</span>
+              <div className="sleep-simple-col">
+                <span className="sleep-simple-label">起床</span>
                 <input
                   type="time"
-                  className="sleep-native-time-input"
+                  className="sleep-simple-time-input"
                   value={tempSleepEnd}
                   onChange={e => setTempSleepEnd(e.target.value)}
                 />
               </div>
             </div>
 
-            {/* リアルタイム計算プレビュー */}
-            <div className="sleep-preview-card">
+            {/* 合計時間：枠線・余計なラベルなしで数値だけ */}
+            <div className="sleep-simple-duration">
               {(() => {
                 const preview = calculateSleepDuration(tempSleepStart, tempSleepEnd);
-                if (preview) {
-                  return (
-                    <div className="sleep-preview-body">
-                      <div className="sleep-preview-meta">TOTAL DURATION</div>
-                      <div className="sleep-preview-hours">
-                        {preview.hoursDecimal} <span className="sleep-hours-unit">HOURS</span>
-                      </div>
-                      <div className="sleep-preview-detail">
-                        {preview.start} - {preview.end} ({preview.minutes} min)
-                      </div>
-                    </div>
-                  );
-                }
-                return (
-                  <div className="sleep-preview-placeholder">
-                    入眠時刻と起床時刻を選択してください
-                  </div>
-                );
+                return preview ? `${preview.hoursDecimal}h` : '--';
               })()}
             </div>
 
-            <div className="sleep-modal-actions">
+            <div className="sleep-simple-actions">
               <button 
                 type="button"
-                className="done-btn sleep-save-btn" 
+                className="done-btn sleep-simple-save-btn" 
                 onClick={() => {
                   if (!tempSleepStart || !tempSleepEnd) {
-                    alert("入眠時刻と起床時刻の両方を入力してください。");
+                    alert("入眠時刻と起床時刻を入力してください。");
                     return;
                   }
                   setBasicData({ sleepStart: tempSleepStart, sleepEnd: tempSleepEnd });
                   setIsSleepModalOpen(false);
                 }}
               >
-                SAVE TIME
+                SET
               </button>
 
               {basicData.sleepStart && (
                 <button
                   type="button"
-                  className="sleep-clear-btn"
+                  className="sleep-simple-clear-btn"
                   onClick={() => {
-                    if (window.confirm("睡眠時間の記録をクリアしますか？")) {
+                    if (window.confirm("睡眠時間の記録を解除しますか？")) {
                       setBasicData({ sleepStart: undefined, sleepEnd: undefined });
                       setIsSleepModalOpen(false);
                     }
                   }}
                 >
-                  CLEAR
+                  Clear
                 </button>
               )}
-
-              <button 
-                type="button"
-                className="cancel-btn" 
-                onClick={() => setIsSleepModalOpen(false)}
-              >
-                Cancel
-              </button>
             </div>
           </div>
         </div>
