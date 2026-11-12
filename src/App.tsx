@@ -2001,88 +2001,26 @@ function App() {
                       )}
                     </div>
 
-                    {!isEditMode && kpi.type !== 'check' && (
+                    {!isEditMode && kpi.type === 'text' && (
                       <div className="kpi-interactive-area">
-                        {kpi.type === 'number' && (() => {
-                          const isLinked = Boolean(kpi.linkConfig?.enabled);
-                          const linkedCount = isLinked ? computeLinkedKpiCount(kpi.linkConfig, monthlyCards) : 0;
-                          const current = isLinked ? linkedCount : (typeof kpi.currentValue === 'number' ? kpi.currentValue : 0);
-                          const target = kpi.targetValue || 1;
-                          const isCompleted = current >= target;
-                          const padLen = target >= 100 ? 3 : 2;
-                          const currentDisplay = String(current).padStart(padLen, '0');
-                          const targetDisplay = String(target).padStart(padLen, '0');
-
-                          return (
-                            <div className={`kpi-number-controller ${isCompleted ? 'is-completed' : ''} ${isLinked ? 'is-linked' : ''}`}>
-                              <div className="kpi-counter-panel">
-                                {!isLinked ? (
-                                  <button 
-                                    type="button"
-                                    className="kpi-counter-btn minus"
-                                    onClick={() => handleUpdateNumberKpi(kpi.id, -1)}
-                                    disabled={current <= 0}
-                                    title="1減らす"
-                                  >
-                                    −
-                                  </button>
-                                ) : (
-                                  <div className="kpi-linked-indicator" title="自動連動中（手動調整不可）">
-                                    🔗
-                                  </div>
-                                )}
-                                <div 
-                                  className="kpi-counter-display"
-                                  onClick={() => {
-                                    if (!isLinked) handleUpdateNumberKpi(kpi.id, 1);
-                                  }}
-                                  title={isLinked ? 'HABITS CARDから自動集計されています' : 'タップで1増やす'}
-                                  style={{ cursor: isLinked ? 'default' : 'pointer' }}
-                                >
-                                  <span className="counter-current">{currentDisplay}</span>
-                                  <span className="counter-separator">/</span>
-                                  <span className="counter-target">{targetDisplay}</span>
-                                </div>
-                                {!isLinked && (
-                                  <button 
-                                    type="button"
-                                    className="kpi-counter-btn plus"
-                                    onClick={() => handleUpdateNumberKpi(kpi.id, 1)}
-                                    title="1増やす"
-                                  >
-                                    +
-                                  </button>
-                                )}
-                              </div>
-                              {isCompleted && (
-                                <div className="kpi-goal-badge">
-                                  ★ CLEAR
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })()}
-
-                        {kpi.type === 'text' && (
-                          <div className="kpi-text-area-wrapper">
-                            <textarea
-                              className="kpi-textarea"
-                              placeholder="読んだ本、観た映画、気付きなどを記録..."
-                              value={typeof kpi.currentValue === 'string' ? kpi.currentValue : ''}
-                              onChange={(e) => {
-                                handleTextKpiChange(kpi.id, e.target.value);
-                                e.target.style.height = 'auto';
-                                e.target.style.height = `${e.target.scrollHeight}px`;
-                              }}
-                              ref={(el) => {
-                                if (el) {
-                                  el.style.height = 'auto';
-                                  el.style.height = `${Math.max(60, el.scrollHeight)}px`;
-                                }
-                              }}
-                            />
-                          </div>
-                        )}
+                        <div className="kpi-text-area-wrapper">
+                          <textarea
+                            className="kpi-textarea"
+                            placeholder="読んだ本、観た映画、気付きなどを記録..."
+                            value={typeof kpi.currentValue === 'string' ? kpi.currentValue : ''}
+                            onChange={(e) => {
+                              handleTextKpiChange(kpi.id, e.target.value);
+                              e.target.style.height = 'auto';
+                              e.target.style.height = `${e.target.scrollHeight}px`;
+                            }}
+                            ref={(el) => {
+                              if (el) {
+                                el.style.height = 'auto';
+                                el.style.height = `${Math.max(60, el.scrollHeight)}px`;
+                              }
+                            }}
+                          />
+                        </div>
                       </div>
                     )}
 
@@ -2103,6 +2041,73 @@ function App() {
                       {kpi.currentValue && <div className="stamp">済</div>}
                     </div>
                   )}
+
+                  {/* Number Type Counter Cell (Aligned to right like done-cell) */}
+                  {!isEditMode && kpi.type === 'number' && (() => {
+                    const isLinked = Boolean(kpi.linkConfig?.enabled);
+                    const linkedCount = isLinked ? computeLinkedKpiCount(kpi.linkConfig, monthlyCards) : 0;
+                    const current = isLinked ? linkedCount : (typeof kpi.currentValue === 'number' ? kpi.currentValue : 0);
+                    const target = kpi.targetValue || 1;
+                    const isCompleted = current >= target;
+                    const padLen = target >= 100 ? 3 : 2;
+                    const currentDisplay = String(current).padStart(padLen, '0');
+                    const targetDisplay = String(target).padStart(padLen, '0');
+
+                    return (
+                      <div 
+                        className={`kpi-number-cell done-cell ${isCompleted ? 'is-completed' : ''} ${isLinked ? 'is-linked' : ''}`}
+                        title={isLinked ? 'HABITS CARDから自動集計中（手動調整不可）' : undefined}
+                      >
+                        {!isLinked && (
+                          <button
+                            type="button"
+                            className="kpi-cell-btn minus"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleUpdateNumberKpi(kpi.id, -1);
+                            }}
+                            disabled={current <= 0}
+                            title="1減らす"
+                          >
+                            −
+                          </button>
+                        )}
+
+                        <div 
+                          className="kpi-cell-value-display"
+                          onClick={() => {
+                            if (!isLinked) handleUpdateNumberKpi(kpi.id, 1);
+                          }}
+                          title={isLinked ? 'HABITS CARDから自動集計中' : 'タップで1増やす'}
+                          style={{ cursor: isLinked ? 'default' : 'pointer' }}
+                        >
+                          <span className="counter-current">{currentDisplay}</span>
+                          <span className="counter-separator">/</span>
+                          <span className="counter-target">{targetDisplay}</span>
+                        </div>
+
+                        {!isLinked && (
+                          <button
+                            type="button"
+                            className="kpi-cell-btn plus"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleUpdateNumberKpi(kpi.id, 1);
+                            }}
+                            title="1増やす"
+                          >
+                            +
+                          </button>
+                        )}
+
+                        {isCompleted && (
+                          <div className="stamp kpi-bg-stamp" title="目標達成！">
+                            済
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {isEditMode && (
                     <div className="kpi-action-buttons">
