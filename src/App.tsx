@@ -579,9 +579,76 @@ function App() {
 
   const lastSyncStr = useRef({ cards: '', templates: '', rewardImageUrls: '', archivedCycles: '', masterCardTemplate: '', monthlyKpis: '' });
   const [isFirebaseLoaded, setIsFirebaseLoaded] = useState(false);
+  const cardsDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestCardsRef = useRef<Record<string, any>>(cards);
+  latestCardsRef.current = cards;
 
+  // Direct Firestore Sync functions for cards
+  const performCardsSync = async (cardsToSync: Record<string, any>) => {
+    if (!db) return;
+    const currentStr = JSON.stringify(cardsToSync);
+    if (currentStr === lastSyncStr.current.cards) return;
+    try {
+      const cleanPayload = JSON.parse(currentStr);
+      await updateDoc(doc(db!, 'appData', 'sharedState'), { cards: cleanPayload }).catch(async (e) => {
+        if (e.code === 'not-found') {
+          await setDoc(doc(db!, 'appData', 'sharedState'), { cards: cleanPayload });
+        } else {
+          throw e;
+        }
+      });
+      lastSyncStr.current.cards = currentStr;
+    } catch (err) {
+      console.error("Firestore sync error for cards:", err);
+    }
+  };
 
-  // Sync from Firestore
+  // 即時保存（睡眠・体組成入力、タスク完了チェック、署名、カード発行/削除など離散的な確定アクション用）
+  const saveCardsNow = (updatedCards: Record<string, any>) => {
+    if (cardsDebounceTimer.current) {
+      clearTimeout(cardsDebounceTimer.current);
+      cardsDebounceTimer.current = null;
+    }
+    localStorage.setItem('cards', JSON.stringify(updatedCards));
+    latestCardsRef.current = updatedCards;
+    performCardsSync(updatedCards);
+  };
+
+  // 遅延保存（テキストタイピング用: 400ms デバウンス）
+  const saveCardsDebounced = (updatedCards: Record<string, any>) => {
+    localStorage.setItem('cards', JSON.stringify(updatedCards));
+    latestCardsRef.current = updatedCards;
+    if (cardsDebounceTimer.current) {
+      clearTimeout(cardsDebounceTimer.current);
+    }
+    cardsDebounceTimer.current = setTimeout(() => {
+      cardsDebounceTimer.current = null;
+      performCardsSync(latestCardsRef.current);
+    }, 400);
+  };
+
+  // アプリがバックグラウンドに回った時や離脱時に、タイマー待ちの変更を直ちにフラッシュ
+  useEffect(() => {
+    const handleFlush = () => {
+      if (cardsDebounceTimer.current) {
+        clearTimeout(cardsDebounceTimer.current);
+        cardsDebounceTimer.current = null;
+        performCardsSync(latestCardsRef.current);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleFlush);
+    window.addEventListener('pagehide', handleFlush);
+    window.addEventListener('beforeunload', handleFlush);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleFlush);
+      window.removeEventListener('pagehide', handleFlush);
+      window.removeEventListener('beforeunload', handleFlush);
+    };
+  }, []);
+
+  // Sync from Firestore with intelligent local data protection
   useEffect(() => {
     if (!db) {
       setIsFirebaseLoaded(true);
@@ -592,8 +659,103 @@ function App() {
       if (docSnap.exists() && !docSnap.metadata.hasPendingWrites) {
         const data = docSnap.data();
         if (data.cards) {
-          lastSyncStr.current.cards = JSON.stringify(data.cards);
-          setCards(data.cards);
+          setCards(prevCards => {
+            // Firestore のデータを受信した際、ローカルにのみ存在するデータ（睡眠時間・バイタル・完了チェックなど）を保護
+            const merged = { ...data.cards };
+            let localNeedsUpload = false;
+
+            for (const [dateKey, localCard] of Object.entries(prevCards)) {
+              const remoteCard = merged[dateKey];
+              if (!remoteCard) {
+                merged[dateKey] = localCard;
+                localNeedsUpload = true;
+              } else {
+                // basicData の保護（ローカルに睡眠やバイタルがあるのにサーバーで空の場合）
+                const localBasic = localCard.basicData || {};
+                const remoteBasic = remoteCard.basicData || {};
+                const localHasSleep = Boolean(localBasic.sleepStart && localBasic.sleepEnd);
+                const remoteHasSleep = Boolean(remoteBasic.sleepStart && remoteBasic.sleepEnd);
+
+                const mergedBasic = { ...remoteBasic };
+                if (localHasSleep && !remoteHasSleep) {
+                  mergedBasic.sleepStart = localBasic.sleepStart;
+                  mergedBasic.sleepEnd = localBasic.sleepEnd;
+                  localNeedsUpload = true;
+                }
+                if (localBasic.weight !== undefined && remoteBasic.weight === undefined) {
+                  mergedBasic.weight = localBasic.weight;
+                  localNeedsUpload = true;
+                }
+                if (localBasic.bodyFat !== undefined && remoteBasic.bodyFat === undefined) {
+                  mergedBasic.bodyFat = localBasic.bodyFat;
+                  localNeedsUpload = true;
+                }
+                if (localBasic.skeletalMuscle !== undefined && remoteBasic.skeletalMuscle === undefined) {
+                  mergedBasic.skeletalMuscle = localBasic.skeletalMuscle;
+                  localNeedsUpload = true;
+                }
+                if (localBasic.skippedFields && (!remoteBasic.skippedFields || remoteBasic.skippedFields.length === 0)) {
+                  mergedBasic.skippedFields = localBasic.skippedFields;
+                  localNeedsUpload = true;
+                }
+
+                // 完了タスクの保護
+                let hasLocalDone = false;
+                const mergedCategories = (remoteCard.categories || []).map((rc: any) => {
+                  const lc = (localCard.categories || []).find((c: any) => c.id === rc.id || c.name === rc.name);
+                  if (!lc) return rc;
+                  const newItems = (rc.items || []).map((ri: any) => {
+                    const li = (lc.items || []).find((i: any) => i.id === ri.id || i.task === ri.task);
+                    if (li && li.isDone && !ri.isDone) {
+                      hasLocalDone = true;
+                      return { ...ri, isDone: true };
+                    }
+                    return ri;
+                  });
+                  return { ...rc, items: newItems };
+                });
+                if (hasLocalDone) {
+                  localNeedsUpload = true;
+                }
+
+                // サインオフノート・リフレクションの保護
+                const mergedSignOff = remoteCard.signOffNote || localCard.signOffNote || '';
+                const mergedNewThings = remoteCard.newThings || localCard.newThings || '';
+                const mergedMoment = remoteCard.momentOfTheDay || localCard.momentOfTheDay || '';
+                const mergedAppreciate = remoteCard.appreciate || localCard.appreciate || '';
+                if (
+                  mergedSignOff !== (remoteCard.signOffNote || '') ||
+                  mergedNewThings !== (remoteCard.newThings || '') ||
+                  mergedMoment !== (remoteCard.momentOfTheDay || '') ||
+                  mergedAppreciate !== (remoteCard.appreciate || '')
+                ) {
+                  localNeedsUpload = true;
+                }
+
+                merged[dateKey] = {
+                  ...remoteCard,
+                  categories: hasLocalDone ? mergedCategories : remoteCard.categories,
+                  basicData: mergedBasic,
+                  signOffNote: mergedSignOff,
+                  newThings: mergedNewThings,
+                  momentOfTheDay: mergedMoment,
+                  appreciate: mergedAppreciate,
+                  signature: remoteCard.signature || localCard.signature || null,
+                  dayRating: remoteCard.dayRating || localCard.dayRating || 0
+                };
+              }
+            }
+
+            if (localNeedsUpload) {
+              console.warn("🛡️ Protected local un-synced data from being overwritten by Firestore! Re-syncing...");
+              saveCardsNow(merged);
+            } else {
+              lastSyncStr.current.cards = JSON.stringify(merged);
+            }
+
+            return merged;
+          });
+
           // activeDate が cards に存在しない場合、今日または最新の日付に安全にフォールバック
           setActiveDate(prevActiveDate => {
             const dateKeys = Object.keys(data.cards).sort();
@@ -645,32 +807,6 @@ function App() {
     });
     return () => unsubscribe();
   }, []);
-
-  // Sync to localStorage (immediate) and Firestore (debounced 600ms for continuous typing)
-  useEffect(() => {
-    const currentStr = JSON.stringify(cards);
-    localStorage.setItem('cards', currentStr);
-    
-    if (isFirebaseLoaded && db && currentStr !== lastSyncStr.current.cards) {
-      const timer = setTimeout(async () => {
-        try {
-          const cleanPayload = JSON.parse(currentStr);
-          await updateDoc(doc(db!, 'appData', 'sharedState'), { cards: cleanPayload }).catch(async (e) => {
-            if (e.code === 'not-found') {
-              await setDoc(doc(db!, 'appData', 'sharedState'), { cards: cleanPayload });
-            } else {
-              throw e;
-            }
-          });
-          lastSyncStr.current.cards = currentStr;
-        } catch (err) {
-          console.error("Firestore sync error for cards:", err);
-        }
-      }, 600);
-
-      return () => clearTimeout(timer);
-    }
-  }, [cards, isFirebaseLoaded]);
 
   useEffect(() => {
     const currentStr = JSON.stringify(archivedCycles);
@@ -822,13 +958,15 @@ function App() {
         ...(card.basicData || {}),
         ...newData
       };
-      return {
+      const next = {
         ...prev,
         [activeDate]: {
           ...card,
           basicData: updatedBasicData
         }
       };
+      saveCardsNow(next);
+      return next;
     });
   };
 
@@ -843,18 +981,20 @@ function App() {
     setCards(prev => {
       const card = prev[activeDate] || { categories: fallbackCategories, currentShift: 'D', signature: null, rewardImage: null };
       const resolved = typeof newCats === 'function' ? newCats(card.categories) : newCats;
-      return { ...prev, [activeDate]: { ...card, categories: resolved } };
+      const next = { ...prev, [activeDate]: { ...card, categories: resolved } };
+      saveCardsNow(next);
+      return next;
     });
   };
-
-
 
   const setSignature = (sig: string | null) => {
     if (viewingArchivedCycle) return;
     setCards(prev => {
       if (!prev[activeDate] && sig === null) return prev;
       const card = prev[activeDate] || { categories: fallbackCategories, currentShift: 'D', signature: null, rewardImage: null };
-      return { ...prev, [activeDate]: { ...card, signature: sig } };
+      const next = { ...prev, [activeDate]: { ...card, signature: sig } };
+      saveCardsNow(next);
+      return next;
     });
   };
 
@@ -863,7 +1003,9 @@ function App() {
     setCards(prev => {
       if (!prev[activeDate] && img === null) return prev;
       const card = prev[activeDate] || { categories: fallbackCategories, currentShift: 'D', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
-      return { ...prev, [activeDate]: { ...card, rewardImage: img } };
+      const next = { ...prev, [activeDate]: { ...card, rewardImage: img } };
+      saveCardsNow(next);
+      return next;
     });
   };
 
@@ -871,7 +1013,9 @@ function App() {
     if (viewingArchivedCycle) return;
     setCards(prev => {
       const card = prev[activeDate] || { categories: fallbackCategories, currentShift: 'D', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
-      return { ...prev, [activeDate]: { ...card, dayRating: rating } };
+      const next = { ...prev, [activeDate]: { ...card, dayRating: rating } };
+      saveCardsNow(next);
+      return next;
     });
   };
 
@@ -879,7 +1023,9 @@ function App() {
     if (viewingArchivedCycle) return;
     setCards(prev => {
       const card = prev[activeDate] || { categories: fallbackCategories, currentShift: 'D', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
-      return { ...prev, [activeDate]: { ...card, signOffNote: note } };
+      const next = { ...prev, [activeDate]: { ...card, signOffNote: note } };
+      saveCardsDebounced(next);
+      return next;
     });
   };
 
@@ -887,7 +1033,9 @@ function App() {
     if (viewingArchivedCycle) return;
     setCards(prev => {
       const card = prev[activeDate] || { categories: fallbackCategories, currentShift: 'D', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
-      return { ...prev, [activeDate]: { ...card, newThings: val } };
+      const next = { ...prev, [activeDate]: { ...card, newThings: val } };
+      saveCardsDebounced(next);
+      return next;
     });
   };
 
@@ -895,7 +1043,9 @@ function App() {
     if (viewingArchivedCycle) return;
     setCards(prev => {
       const card = prev[activeDate] || { categories: fallbackCategories, currentShift: 'D', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
-      return { ...prev, [activeDate]: { ...card, momentOfTheDay: val } };
+      const next = { ...prev, [activeDate]: { ...card, momentOfTheDay: val } };
+      saveCardsDebounced(next);
+      return next;
     });
   };
 
@@ -903,7 +1053,9 @@ function App() {
     if (viewingArchivedCycle) return;
     setCards(prev => {
       const card = prev[activeDate] || { categories: fallbackCategories, currentShift: 'D', signature: null, rewardImage: null, dayRating: 0, signOffNote: '' };
-      return { ...prev, [activeDate]: { ...card, appreciate: val } };
+      const next = { ...prev, [activeDate]: { ...card, appreciate: val } };
+      saveCardsDebounced(next);
+      return next;
     });
   };
 
@@ -1257,6 +1409,7 @@ function App() {
         basicData: {}
       };
       
+      saveCardsNow(newCards);
       return newCards;
     });
     
@@ -1555,13 +1708,15 @@ function App() {
             appreciate: ''
           };
 
-          return {
+          const next = {
             ...prev,
             [targetDate]: {
               ...current,
               categories: clonedCategories
             }
           };
+          saveCardsNow(next);
+          return next;
         });
 
         setActiveDate(targetDate);
@@ -1616,6 +1771,7 @@ function App() {
                setActiveDate(getTodayDate());
              }
           }
+          saveCardsNow(newCards);
           return newCards;
         });
       }
@@ -2826,7 +2982,9 @@ function App() {
                     const latest = archivedCycles[archivedCycles.length - 1];
                     const dates = Object.keys(latest.cards || {}).sort();
                     if (window.confirm(`直前のアーカイブ（${dates[0]}〜${dates[dates.length - 1]}）からカードを復元しますか？`)) {
-                      setCards(latest.cards || {});
+                      const restored = latest.cards || {};
+                      setCards(restored);
+                      saveCardsNow(restored);
                       if (dates.length > 0) setActiveDate(dates[dates.length - 1]);
                     }
                   }}
@@ -2900,6 +3058,7 @@ function App() {
                     } else {
                       setActiveDate(getTodayDate());
                     }
+                    saveCardsNow(newCards);
                     return newCards;
                   });
                 }
