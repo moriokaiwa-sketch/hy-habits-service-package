@@ -1350,16 +1350,11 @@ function App() {
     }
   }, [categories, isEditMode, currentShift, isEditingMasterTemplate]);
 
-  const isNightShift = formatShift(currentShift) === 'N';
   const hasSleepTime = Boolean(basicData.sleepStart && basicData.sleepEnd);
-  const isSleepSkipped = Boolean(basicData.skippedFields?.includes('sleep'));
-  const isSleepDone = hasSleepTime || isSleepSkipped || isNightShift;
 
-  const basicDataTotal = isEditingMasterTemplate ? 0 : 1;
-  const basicDataCompleted = isEditingMasterTemplate ? 0 : (isSleepDone ? 1 : 0);
-
-  const totalTasks = categories.reduce((sum, cat) => sum + (Array.isArray(cat?.items) ? cat.items.length : 0), 0) + basicDataTotal;
-  const completedOrSkippedTasks = categories.reduce((sum, cat) => sum + (Array.isArray(cat?.items) ? cat.items.filter(t => t?.isDone || t?.isSkipped).length : 0), 0) + basicDataCompleted;
+  // 睡眠データ（BASIC DATA）は Complete Check 要件から除外（カテゴリタスクのみで判定）
+  const totalTasks = categories.reduce((sum, cat) => sum + (Array.isArray(cat?.items) ? cat.items.length : 0), 0);
+  const completedOrSkippedTasks = categories.reduce((sum, cat) => sum + (Array.isArray(cat?.items) ? cat.items.filter(t => t?.isDone || t?.isSkipped).length : 0), 0);
   const isAllTasksCompleted = totalTasks > 0 && totalTasks === completedOrSkippedTasks;
 
   useEffect(() => {
@@ -2035,13 +2030,6 @@ function App() {
           }
         });
       });
-
-      if (card.basicData !== undefined) {
-        const b = card.basicData;
-        const isN = formatShift(card.currentShift || '') === 'N';
-        total += 1;
-        if ((b.sleepStart && b.sleepEnd) || b.skippedFields?.includes('sleep') || isN) done++;
-      }
 
       if (total === 0) {
         return card.signature ? 'heat-4' : 'heat-0';
@@ -3136,7 +3124,7 @@ function App() {
               <span className="basic-data-item-title">Sleeping Time</span>
             </div>
             <div 
-              className={`basic-data-value-cell ${isSleepDone ? 'is-done' : 'is-empty'} ${viewingArchivedCycle ? 'is-readonly' : ''} ${basicData.skippedFields?.includes('sleep') ? 'is-skipped' : ''}`}
+              className={`basic-data-value-cell ${hasSleepTime ? 'is-done' : 'is-empty'} ${viewingArchivedCycle ? 'is-readonly' : ''} ${basicData.skippedFields?.includes('sleep') ? 'is-skipped' : ''}`}
               onClick={openSleepModal}
               onContextMenu={(e) => {
                 e.preventDefault();
@@ -3157,14 +3145,6 @@ function App() {
                 }
                 if (basicData.skippedFields?.includes('sleep')) {
                   return <div className="slash-line"></div>;
-                }
-                if (isNightShift) {
-                  return (
-                    <div className="basic-data-night-badge">
-                      <span className="night-shift-tag">NIGHT</span>
-                      <span className="night-shift-sub">睡眠なし</span>
-                    </div>
-                  );
                 }
                 return (
                   <div className="basic-data-placeholder-wrapper">
@@ -3763,12 +3743,6 @@ function App() {
                 ✕
               </button>
             </div>
-
-            {isNightShift && (
-              <div className="sleep-modal-night-notice">
-                🌙 夜勤（N）のため睡眠時間は任意です<br />（未入力でも完了扱いとなります）
-              </div>
-            )}
 
             <div className="sleep-simple-inputs">
               <div className="sleep-simple-col">
