@@ -708,19 +708,18 @@ function App() {
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists() && !docSnap.metadata.hasPendingWrites) {
         const data = docSnap.data();
+
+        // 1. CARDS 同期 (HABITS CARD)
         if (data.cards) {
           setCards(prevCards => {
-            // Firestore のデータを受信した際、ローカルにのみ存在するデータ（睡眠時間・バイタル・完了チェックなど）を保護
             const merged = { ...data.cards };
-            let localNeedsUpload = false;
 
             for (const [dateKey, localCard] of Object.entries(prevCards)) {
               const remoteCard = merged[dateKey];
               if (!remoteCard) {
                 merged[dateKey] = localCard;
-                localNeedsUpload = true;
               } else {
-                // basicData の保護（ローカルに睡眠やバイタルがあるのにサーバーで空の場合）
+                // basicData の保護 (睡眠時間)
                 const localBasic = localCard.basicData || {};
                 const remoteBasic = remoteCard.basicData || {};
                 const localHasSleep = Boolean(localBasic.sleepStart && localBasic.sleepEnd);
@@ -730,16 +729,12 @@ function App() {
                 if (localHasSleep && !remoteHasSleep) {
                   mergedBasic.sleepStart = localBasic.sleepStart;
                   mergedBasic.sleepEnd = localBasic.sleepEnd;
-                  localNeedsUpload = true;
                 }
                 if (localBasic.skippedFields && (!remoteBasic.skippedFields || remoteBasic.skippedFields.length === 0)) {
                   mergedBasic.skippedFields = localBasic.skippedFields;
-                  localNeedsUpload = true;
                 }
 
-                // 完了タスク & 累積時間 & 最新タスク名（SG研究等）の保護
-                // 重要: カテゴリ構造とタスク一覧は常に Firestore (remoteCard) を正とし、ローカルの古い構成で削ぎ落とさない
-                let hasLocalDone = false;
+                // 完了タスク & 累積時間の保護 (リモート構成を常に正とする)
                 const remoteCats = Array.isArray(remoteCard.categories) ? remoteCard.categories : [];
                 const localCats = Array.isArray(localCard.categories) ? localCard.categories : [];
 
@@ -755,9 +750,6 @@ function App() {
                     const isSkipped = Boolean(li.isSkipped || ri.isSkipped);
                     const resolvedType = ri.type || li.type || 'check';
 
-                    if (isDone !== Boolean(ri.isDone) || (accumulatedMinutes > 0 && accumulatedMinutes !== ri.accumulatedMinutes)) {
-                      hasLocalDone = true;
-                    }
                     return {
                       ...ri,
                       type: resolvedType,
@@ -769,65 +761,42 @@ function App() {
                   return { ...rc, items: newItems };
                 }));
 
-                // ローカルにのみ存在する新規追加カテゴリがあれば保護
+                // ローカルにのみ存在する新規追加カテゴリがあれば保護 (デフォルト初期値 General 1つは除外)
                 localCats.forEach((lc: any) => {
                   const existsInRemote = remoteCats.some((rc: any) => rc.id === lc.id || rc.name?.trim().toLowerCase() === lc.name?.trim().toLowerCase());
                   const isDefaultSingleGeneral = localCats.length === 1 && lc.id === 'cat-general' && remoteCats.length > 1;
                   if (!existsInRemote && !isDefaultSingleGeneral) {
                     mergedCategories.push(lc);
-                    hasLocalDone = true;
                   }
                 });
-
-                if (hasLocalDone) {
-                  localNeedsUpload = true;
-                }
-
-                // サインオフノート・リフレクションの保護
-                const mergedSignOff = remoteCard.signOffNote || localCard.signOffNote || '';
-                const mergedNewThings = remoteCard.newThings || localCard.newThings || '';
-                const mergedMoment = remoteCard.momentOfTheDay || localCard.momentOfTheDay || '';
-                const mergedAppreciate = remoteCard.appreciate || localCard.appreciate || '';
-                if (
-                  mergedSignOff !== (remoteCard.signOffNote || '') ||
-                  mergedNewThings !== (remoteCard.newThings || '') ||
-                  mergedMoment !== (remoteCard.momentOfTheDay || '') ||
-                  mergedAppreciate !== (remoteCard.appreciate || '')
-                ) {
-                  localNeedsUpload = true;
-                }
 
                 merged[dateKey] = {
                   ...remoteCard,
                   categories: mergedCategories,
                   basicData: mergedBasic,
-                  signOffNote: mergedSignOff,
-                  newThings: mergedNewThings,
-                  momentOfTheDay: mergedMoment,
-                  appreciate: mergedAppreciate,
+                  signOffNote: remoteCard.signOffNote || localCard.signOffNote || '',
+                  newThings: remoteCard.newThings || localCard.newThings || '',
+                  momentOfTheDay: remoteCard.momentOfTheDay || localCard.momentOfTheDay || '',
+                  appreciate: remoteCard.appreciate || localCard.appreciate || '',
                   signature: remoteCard.signature || localCard.signature || null,
                   dayRating: remoteCard.dayRating || localCard.dayRating || 0
                 };
               }
             }
 
-            // 全カードを sanitizeCategories に通し、「SGけ」等の破損データを全自動修復
+            // 全カードを sanitizeCategories に通してタスク名等を自動修復
             Object.keys(merged).forEach(dateKey => {
               if (merged[dateKey] && merged[dateKey].categories) {
-                const clean = sanitizeCategories(merged[dateKey].categories);
-                if (JSON.stringify(clean) !== JSON.stringify(merged[dateKey].categories)) {
-                  merged[dateKey] = { ...merged[dateKey], categories: clean };
-                  localNeedsUpload = true;
-                }
+                merged[dateKey] = {
+                  ...merged[dateKey],
+                  categories: sanitizeCategories(merged[dateKey].categories)
+                };
               }
             });
 
-            if (localNeedsUpload) {
-              console.warn("🛡️ Protected local un-synced data from being overwritten by Firestore! Re-syncing...");
-              saveCardsNow(merged);
-            } else {
-              lastSyncStr.current.cards = JSON.stringify(merged);
-            }
+            const cardsStr = JSON.stringify(merged);
+            localStorage.setItem('cards', cardsStr);
+            lastSyncStr.current.cards = cardsStr;
             isFirestoreLoadedRef.current.cards = true;
 
             return merged;
@@ -843,53 +812,54 @@ function App() {
             return dateKeys[dateKeys.length - 1];
           });
         }
+
+        // 2. TEMPLATES 同期 (シフト別テンプレート)
         if (data.templates) {
           const sanitizedTemplates: Record<string, Category[]> = {};
-          let templateNeedsUpload = false;
           Object.entries(data.templates).forEach(([shiftKey, cats]: [string, any]) => {
             sanitizedTemplates[shiftKey] = sanitizeCategories(cats);
-            if (JSON.stringify(sanitizedTemplates[shiftKey]) !== JSON.stringify(cats)) {
-              templateNeedsUpload = true;
-            }
           });
-          lastSyncStr.current.templates = JSON.stringify(sanitizedTemplates);
+          const templatesStr = JSON.stringify(sanitizedTemplates);
+          localStorage.setItem('templates', templatesStr);
+          lastSyncStr.current.templates = templatesStr;
           isFirestoreLoadedRef.current.templates = true;
           setTemplates(sanitizedTemplates);
-          if (templateNeedsUpload && db) {
-            updateDoc(doc(db, 'appData', 'sharedState'), { templates: sanitizedTemplates }).catch(console.error);
-          }
         }
+
+        // 3. MASTER CARD TEMPLATE 同期
         if (data.masterCardTemplate) {
           const sanitizedMaster = sanitizeCategories(data.masterCardTemplate);
-          lastSyncStr.current.masterCardTemplate = JSON.stringify(sanitizedMaster);
+          const masterStr = JSON.stringify(sanitizedMaster);
+          localStorage.setItem('masterCardTemplate', masterStr);
+          lastSyncStr.current.masterCardTemplate = masterStr;
           isFirestoreLoadedRef.current.masterCardTemplate = true;
           setMasterCardTemplate(sanitizedMaster);
         }
+
+        // 4. REWARD IMAGE URLS 同期
         if (data.rewardImageUrls !== undefined) {
           lastSyncStr.current.rewardImageUrls = data.rewardImageUrls;
+          localStorage.setItem('rewardImageUrls', data.rewardImageUrls);
           setRewardImageUrls(data.rewardImageUrls);
         }
+
+        // 5. MONTHLY KPIS 同期 (月次目標)
         if (data.monthlyKpis && Array.isArray(data.monthlyKpis)) {
           const sanitizedKpis = data.monthlyKpis.map(sanitizeLoadedKpi);
-          lastSyncStr.current.monthlyKpis = JSON.stringify(sanitizedKpis);
+          const kpisStr = JSON.stringify(sanitizedKpis);
+          localStorage.setItem('monthlyKpis', kpisStr);
+          lastSyncStr.current.monthlyKpis = kpisStr;
           isFirestoreLoadedRef.current.monthlyKpis = true;
           setMonthlyKpis(sanitizedKpis);
         }
+
+        // 6. ARCHIVED CYCLES 同期 (過去アーカイブ)
         if (data.archivedCycles && Array.isArray(data.archivedCycles)) {
-          setArchivedCycles(prev => {
-            const firestoreIds = new Set(data.archivedCycles.map((c: any) => c.cycleId));
-            const localOnly = prev.filter((c: any) => !firestoreIds.has(c.cycleId));
-            
-            if (localOnly.length > 0) {
-              const combined = [...data.archivedCycles, ...localOnly].sort((a, b) => a.timestamp - b.timestamp);
-              lastSyncStr.current.archivedCycles = "force_upload";
-              return combined;
-            } else {
-              lastSyncStr.current.archivedCycles = JSON.stringify(data.archivedCycles);
-              isFirestoreLoadedRef.current.archivedCycles = true;
-              return data.archivedCycles;
-            }
-          });
+          const cyclesStr = JSON.stringify(data.archivedCycles);
+          localStorage.setItem('archivedCycles', cyclesStr);
+          lastSyncStr.current.archivedCycles = cyclesStr;
+          isFirestoreLoadedRef.current.archivedCycles = true;
+          setArchivedCycles(data.archivedCycles);
         }
       }
       setIsFirebaseLoaded(true);
