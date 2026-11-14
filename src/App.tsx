@@ -1084,7 +1084,35 @@ function App() {
   const [timerIsRunning, setTimerIsRunning] = useState(false);
   const [timerSessionSeconds, setTimerSessionSeconds] = useState(0);
   const [timerAccumulatedSeconds, setTimerAccumulatedSeconds] = useState(0);
+  const [timerLastSessionSeconds, setTimerLastSessionSeconds] = useState(0);
   const timerStartTimestampRef = useRef<number | null>(null);
+
+  const updateStudyTaskTime = (totalSeconds: number, targetTaskOverride?: typeof timerTargetTask) => {
+    const task = targetTaskOverride || timerTargetTask;
+    if (!task) return;
+    const finalMinutes = totalSeconds > 0 ? Math.max(1, Math.round(totalSeconds / 60)) : 0;
+    const targetMins = task.targetMinutes;
+    const isCompleted = targetMins > 0 ? finalMinutes >= targetMins : finalMinutes > 0;
+
+    setCategories(categories.map(c => {
+      if (c.id === task.categoryId) {
+        return {
+          ...c,
+          items: c.items.map(t => {
+            if (t.id === task.habitId) {
+              return {
+                ...t,
+                accumulatedMinutes: finalMinutes,
+                isDone: isCompleted
+              };
+            }
+            return t;
+          })
+        };
+      }
+      return c;
+    }));
+  };
 
   const openStudyTimerModal = (category: Category, habit: Habit) => {
     if (viewingArchivedCycle || isEditingMasterTemplate) return;
@@ -1100,6 +1128,7 @@ function App() {
     });
     setTimerIsRunning(false);
     setTimerSessionSeconds(0);
+    setTimerLastSessionSeconds(0);
     setTimerAccumulatedSeconds(currentMins * 60);
     timerStartTimestampRef.current = null;
     setIsStudyTimerModalOpen(true);
@@ -1132,21 +1161,31 @@ function App() {
 
   const handleStopTimer = () => {
     setTimerIsRunning(false);
-    setTimerAccumulatedSeconds(prev => prev + timerSessionSeconds);
+    const newTotal = timerAccumulatedSeconds + timerSessionSeconds;
+    setTimerAccumulatedSeconds(newTotal);
+    setTimerLastSessionSeconds(timerSessionSeconds);
     setTimerSessionSeconds(0);
     timerStartTimestampRef.current = null;
+    updateStudyTaskTime(newTotal);
   };
 
   const handleAdjustTimerMinutes = (deltaMinutes: number) => {
-    setTimerAccumulatedSeconds(prev => Math.max(0, prev + deltaMinutes * 60));
+    const curSession = timerIsRunning ? timerSessionSeconds : 0;
+    setTimerAccumulatedSeconds(prev => {
+      const newTotal = Math.max(0, prev + deltaMinutes * 60);
+      updateStudyTaskTime(newTotal + curSession);
+      return newTotal;
+    });
   };
 
   const handleResetTimer = () => {
     if (window.confirm("本日のタイマー記録をリセットしますか？")) {
       setTimerIsRunning(false);
       setTimerSessionSeconds(0);
+      setTimerLastSessionSeconds(0);
       setTimerAccumulatedSeconds(0);
       timerStartTimestampRef.current = null;
+      updateStudyTaskTime(0);
     }
   };
 
@@ -1160,31 +1199,11 @@ function App() {
     if (timerIsRunning) {
       finalTotalSeconds += timerSessionSeconds;
       setTimerIsRunning(false);
+      setTimerAccumulatedSeconds(finalTotalSeconds);
+      setTimerSessionSeconds(0);
     }
 
-    const finalMinutes = finalTotalSeconds > 0 ? Math.max(1, Math.round(finalTotalSeconds / 60)) : 0;
-    const targetMins = timerTargetTask.targetMinutes;
-    const isCompleted = targetMins > 0 ? finalMinutes >= targetMins : finalMinutes > 0;
-
-    setCategories(categories.map(c => {
-      if (c.id === timerTargetTask.categoryId) {
-        return {
-          ...c,
-          items: c.items.map(t => {
-            if (t.id === timerTargetTask.habitId) {
-              return {
-                ...t,
-                accumulatedMinutes: finalMinutes,
-                isDone: isCompleted
-              };
-            }
-            return t;
-          })
-        };
-      }
-      return c;
-    }));
-
+    updateStudyTaskTime(finalTotalSeconds);
     setIsStudyTimerModalOpen(false);
   };
   
@@ -3738,9 +3757,15 @@ function App() {
                   {timerIsRunning ? '● RECORDING' : '❚❚ PAUSED'}
                 </div>
                 <div className={`study-timer-digits ${timerIsRunning ? 'is-running' : ''}`}>
-                  {formatSec(timerSessionSeconds)}
+                  {formatSec(currentTotalSec)}
                 </div>
-                <div className="study-timer-sub-label">CURRENT SESSION</div>
+                <div className="study-timer-sub-label">
+                  {timerIsRunning 
+                    ? `SESSION: +${formatSec(timerSessionSeconds)}` 
+                    : (timerLastSessionSeconds > 0 
+                        ? `LAST SESSION: +${formatSec(timerLastSessionSeconds)}` 
+                        : 'TOTAL STUDY TIME')}
+                </div>
               </div>
 
               {/* 操作ボタン (START / STOP) */}
