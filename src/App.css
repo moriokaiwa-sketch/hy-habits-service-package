@@ -2456,6 +2456,31 @@ input:checked + .slider:before {
   white-space: nowrap;
 }
 
+.basic-data-night-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  font-family: var(--font-mono, monospace);
+  white-space: nowrap;
+}
+
+.night-shift-tag {
+  background-color: var(--text-color, #1a1a1a);
+  color: #fff;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  border-radius: 2px;
+}
+
+.night-shift-sub {
+  font-size: 0.75rem;
+  color: #555e68;
+  font-weight: 700;
+}
+
 @media (max-width: 420px) {
   .basic-data-label-cell {
     padding: 0.65rem 0.6rem;
@@ -2520,6 +2545,18 @@ input:checked + .slider:before {
   padding: 0.2rem;
   color: #666;
   line-height: 1;
+}
+
+.sleep-modal-night-notice {
+  font-size: 0.75rem;
+  color: #555e68;
+  background: #f7fafc;
+  border: 1px dashed #cbd5e1;
+  padding: 0.4rem 0.5rem;
+  margin-bottom: 1rem;
+  text-align: center;
+  line-height: 1.4;
+  font-family: var(--font-mono, monospace);
 }
 
 .sleep-simple-inputs {
