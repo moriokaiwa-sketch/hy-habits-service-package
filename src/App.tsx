@@ -2439,7 +2439,7 @@ function App() {
                                   <span className="kpi-title-text">{kpi.title}</span>
                                   {(kpi.linkConfig?.enabled || isKpiLinkedToNewThings(kpi)) && (
                                     <span className="kpi-linked-badge" title="HABITS CARDと自動連動中">
-                                      🔗 AUTO{isKpiLinkedToNewThings(kpi) ? ' (NEW THINGS)' : kpi.linkConfig?.sourceType === 'studyTime' ? ' (SG研究)' : ''}
+                                      AUTO
                                     </span>
                                   )}
                                   {isEditMode && (
