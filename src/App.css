@@ -1,8 +1,8 @@
 .app-container {
   width: 100%;
   max-width: 800px;
-  margin: 2rem auto 0;
-  padding: 0 1rem;
+  margin: 0 auto;
+  padding: calc(env(safe-area-inset-top, 0px) + 0.75rem) 1rem calc(5.5rem + env(safe-area-inset-bottom, 0px));
   box-sizing: border-box;
 }
 

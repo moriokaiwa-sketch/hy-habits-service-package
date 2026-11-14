@@ -622,13 +622,20 @@ function App() {
 
   const lastSyncStr = useRef({ cards: '', templates: '', rewardImageUrls: '', archivedCycles: '', masterCardTemplate: '', monthlyKpis: '' });
   const [isFirebaseLoaded, setIsFirebaseLoaded] = useState(false);
+  const isFirestoreLoadedRef = useRef({
+    cards: false,
+    templates: false,
+    masterCardTemplate: false,
+    monthlyKpis: false,
+    archivedCycles: false
+  });
   const cardsDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestCardsRef = useRef<Record<string, any>>(cards);
   latestCardsRef.current = cards;
 
   // Direct Firestore Sync functions for cards
   const performCardsSync = async (cardsToSync: Record<string, any>) => {
-    if (!db) return;
+    if (!db || !isFirestoreLoadedRef.current.cards) return;
     const currentStr = JSON.stringify(cardsToSync);
     if (currentStr === lastSyncStr.current.cards) return;
     try {
@@ -731,27 +738,47 @@ function App() {
                 }
 
                 // 完了タスク & 累積時間 & 最新タスク名（SG研究等）の保護
+                // 重要: カテゴリ構造とタスク一覧は常に Firestore (remoteCard) を正とし、ローカルの古い構成で削ぎ落とさない
                 let hasLocalDone = false;
-                const baseCats = localCard.categories && localCard.categories.length > 0 ? localCard.categories : remoteCard.categories;
-                const mergedCategories = sanitizeCategories((baseCats || []).map((lc: any) => {
-                  const rc = (remoteCard.categories || []).find((c: any) => c.id === lc.id || c.name === lc.name);
-                  if (!rc) return lc;
-                  const newItems = (lc.items || []).map((li: any) => {
-                    const ri = (rc.items || []).find((i: any) => i.id === li.id || i.task === li.task);
-                    if (!ri) return li;
+                const remoteCats = Array.isArray(remoteCard.categories) ? remoteCard.categories : [];
+                const localCats = Array.isArray(localCard.categories) ? localCard.categories : [];
+
+                const mergedCategories = sanitizeCategories(remoteCats.map((rc: any) => {
+                  const lc = localCats.find((c: any) => c.id === rc.id || c.name?.trim().toLowerCase() === rc.name?.trim().toLowerCase());
+                  if (!lc) return rc;
+
+                  const newItems = (rc.items || []).map((ri: any) => {
+                    const li = (lc.items || []).find((i: any) => i.id === ri.id || i.task?.trim().toLowerCase() === ri.task?.trim().toLowerCase());
+                    if (!li) return ri;
                     const isDone = Boolean(li.isDone || ri.isDone);
                     const accumulatedMinutes = Math.max(Number(li.accumulatedMinutes) || 0, Number(ri.accumulatedMinutes) || 0);
+                    const isSkipped = Boolean(li.isSkipped || ri.isSkipped);
+                    const resolvedType = ri.type || li.type || 'check';
+
                     if (isDone !== Boolean(ri.isDone) || (accumulatedMinutes > 0 && accumulatedMinutes !== ri.accumulatedMinutes)) {
                       hasLocalDone = true;
                     }
                     return {
-                      ...li,
+                      ...ri,
+                      type: resolvedType,
                       isDone,
+                      isSkipped,
                       accumulatedMinutes: accumulatedMinutes > 0 ? accumulatedMinutes : undefined
                     };
                   });
-                  return { ...lc, items: newItems };
+                  return { ...rc, items: newItems };
                 }));
+
+                // ローカルにのみ存在する新規追加カテゴリがあれば保護
+                localCats.forEach((lc: any) => {
+                  const existsInRemote = remoteCats.some((rc: any) => rc.id === lc.id || rc.name?.trim().toLowerCase() === lc.name?.trim().toLowerCase());
+                  const isDefaultSingleGeneral = localCats.length === 1 && lc.id === 'cat-general' && remoteCats.length > 1;
+                  if (!existsInRemote && !isDefaultSingleGeneral) {
+                    mergedCategories.push(lc);
+                    hasLocalDone = true;
+                  }
+                });
+
                 if (hasLocalDone) {
                   localNeedsUpload = true;
                 }
@@ -801,6 +828,7 @@ function App() {
             } else {
               lastSyncStr.current.cards = JSON.stringify(merged);
             }
+            isFirestoreLoadedRef.current.cards = true;
 
             return merged;
           });
@@ -825,6 +853,7 @@ function App() {
             }
           });
           lastSyncStr.current.templates = JSON.stringify(sanitizedTemplates);
+          isFirestoreLoadedRef.current.templates = true;
           setTemplates(sanitizedTemplates);
           if (templateNeedsUpload && db) {
             updateDoc(doc(db, 'appData', 'sharedState'), { templates: sanitizedTemplates }).catch(console.error);
@@ -833,6 +862,7 @@ function App() {
         if (data.masterCardTemplate) {
           const sanitizedMaster = sanitizeCategories(data.masterCardTemplate);
           lastSyncStr.current.masterCardTemplate = JSON.stringify(sanitizedMaster);
+          isFirestoreLoadedRef.current.masterCardTemplate = true;
           setMasterCardTemplate(sanitizedMaster);
         }
         if (data.rewardImageUrls !== undefined) {
@@ -842,6 +872,7 @@ function App() {
         if (data.monthlyKpis && Array.isArray(data.monthlyKpis)) {
           const sanitizedKpis = data.monthlyKpis.map(sanitizeLoadedKpi);
           lastSyncStr.current.monthlyKpis = JSON.stringify(sanitizedKpis);
+          isFirestoreLoadedRef.current.monthlyKpis = true;
           setMonthlyKpis(sanitizedKpis);
         }
         if (data.archivedCycles && Array.isArray(data.archivedCycles)) {
@@ -855,6 +886,7 @@ function App() {
               return combined;
             } else {
               lastSyncStr.current.archivedCycles = JSON.stringify(data.archivedCycles);
+              isFirestoreLoadedRef.current.archivedCycles = true;
               return data.archivedCycles;
             }
           });
@@ -872,7 +904,7 @@ function App() {
     const currentStr = JSON.stringify(archivedCycles);
     localStorage.setItem('archivedCycles', currentStr);
     
-    if (isFirebaseLoaded && db && currentStr !== lastSyncStr.current.archivedCycles) {
+    if (isFirebaseLoaded && db && isFirestoreLoadedRef.current.archivedCycles && currentStr !== lastSyncStr.current.archivedCycles) {
       try {
         const cleanPayload = JSON.parse(currentStr);
         setDoc(doc(db, 'appData', 'sharedState'), { archivedCycles: cleanPayload }, { merge: true })
@@ -895,7 +927,7 @@ function App() {
     const currentStr = JSON.stringify(masterCardTemplate);
     localStorage.setItem('masterCardTemplate', currentStr);
     
-    if (isFirebaseLoaded && db && currentStr !== lastSyncStr.current.masterCardTemplate) {
+    if (isFirebaseLoaded && db && isFirestoreLoadedRef.current.masterCardTemplate && currentStr !== lastSyncStr.current.masterCardTemplate) {
       try {
         const cleanPayload = JSON.parse(currentStr);
         updateDoc(doc(db, 'appData', 'sharedState'), { masterCardTemplate: cleanPayload })
@@ -948,7 +980,7 @@ function App() {
     const currentStr = JSON.stringify(cleanKpis);
     localStorage.setItem('monthlyKpis', currentStr);
     
-    if (isFirebaseLoaded && db && currentStr !== lastSyncStr.current.monthlyKpis) {
+    if (isFirebaseLoaded && db && isFirestoreLoadedRef.current.monthlyKpis && currentStr !== lastSyncStr.current.monthlyKpis) {
       try {
         const cleanPayload = JSON.parse(currentStr);
         updateDoc(doc(db, 'appData', 'sharedState'), { monthlyKpis: cleanPayload })
@@ -1318,7 +1350,7 @@ function App() {
     const currentStr = JSON.stringify(templates);
     localStorage.setItem('templates', currentStr);
     
-    if (isFirebaseLoaded && db && currentStr !== lastSyncStr.current.templates) {
+    if (isFirebaseLoaded && db && isFirestoreLoadedRef.current.templates && currentStr !== lastSyncStr.current.templates) {
       try {
         const cleanPayload = JSON.parse(currentStr);
         updateDoc(doc(db, 'appData', 'sharedState'), { templates: cleanPayload })
