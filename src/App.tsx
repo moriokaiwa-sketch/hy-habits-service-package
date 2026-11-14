@@ -168,10 +168,11 @@ const calculateSleepDuration = (start?: string, end?: string) => {
 };
 
 export const isStudyTimerTask = (categoryName?: string, taskName?: string): boolean => {
-  if (!categoryName || !taskName) return false;
-  const c = categoryName.trim().toLowerCase();
-  const t = taskName.trim().toLowerCase();
-  return c === 'study' && t.includes('sg研究');
+  const c = (categoryName || '').trim().toLowerCase();
+  const t = (taskName || '').trim().toLowerCase();
+  if (c === 'study') return true;
+  if (t.includes('sg') || t.includes('研究')) return true;
+  return false;
 };
 
 const computeLinkedKpiCount = (config: KpiLinkConfig | undefined, monthlyCards: Record<string, any>): number => {
@@ -393,13 +394,29 @@ function sanitizeCategories(raw: any): Category[] {
         taskText = String(item.habit);
       }
 
+      // 「SGけ」「SG 色塗り」などの誤入力・旧名称を「SG研究」へ自動修復
+      const catName = String(cat?.name || '').trim().toLowerCase();
+      const taskTrimmed = taskText.trim();
+      if (
+        (catName === 'study' && (taskTrimmed.startsWith('SG') || taskTrimmed.startsWith('sg') || taskTrimmed.includes('色塗り') || taskTrimmed === 'SGけ')) ||
+        taskTrimmed === 'SGけ' ||
+        taskTrimmed === 'SG 色塗り' ||
+        taskTrimmed === 'SG色塗り' ||
+        taskTrimmed === 'sg色塗り' ||
+        taskTrimmed === 'sgけ'
+      ) {
+        taskText = 'SG研究';
+      }
+
       const habitObj: Habit = {
         id: String(item?.id || `task-${Date.now()}-${cIdx}-${iIdx}`),
         task: taskText,
         description: item?.description ? String(item.description) : '',
         time: item?.time ? String(item.time) : (estimatedTime ? String(estimatedTime) : ''),
         isDone: Boolean(item?.isDone),
-        isSkipped: Boolean(item?.isSkipped)
+        isSkipped: Boolean(item?.isSkipped),
+        accumulatedMinutes: typeof item?.accumulatedMinutes === 'number' ? item.accumulatedMinutes : undefined,
+        timerActiveStart: typeof item?.timerActiveStart === 'number' ? item.timerActiveStart : undefined
       };
 
       if (estimatedTime !== undefined && !Number.isNaN(estimatedTime)) {
@@ -455,7 +472,11 @@ function App() {
             migrated[newKey] = migrated[oldKey];
           }
         });
-        return migrated;
+        const sanitized: Record<string, Category[]> = {};
+        Object.entries(migrated).forEach(([k, cats]) => {
+          sanitized[k] = sanitizeCategories(cats);
+        });
+        return sanitized;
       } catch (e) {
         // ignore
       }
@@ -481,7 +502,19 @@ function App() {
     const saved = localStorage.getItem('cards');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          const sanitized: Record<string, any> = {};
+          Object.entries(parsed).forEach(([d, card]: [string, any]) => {
+            if (card) {
+              sanitized[d] = {
+                ...card,
+                categories: card.categories ? sanitizeCategories(card.categories) : card.categories
+              };
+            }
+          });
+          return sanitized;
+        }
       } catch (e) {
         // ignore
       }
@@ -687,21 +720,28 @@ function App() {
                   localNeedsUpload = true;
                 }
 
-                // 完了タスクの保護
+                // 完了タスク & 累積時間 & 最新タスク名（SG研究等）の保護
                 let hasLocalDone = false;
-                const mergedCategories = (remoteCard.categories || []).map((rc: any) => {
-                  const lc = (localCard.categories || []).find((c: any) => c.id === rc.id || c.name === rc.name);
-                  if (!lc) return rc;
-                  const newItems = (rc.items || []).map((ri: any) => {
-                    const li = (lc.items || []).find((i: any) => i.id === ri.id || i.task === ri.task);
-                    if (li && li.isDone && !ri.isDone) {
+                const baseCats = localCard.categories && localCard.categories.length > 0 ? localCard.categories : remoteCard.categories;
+                const mergedCategories = sanitizeCategories((baseCats || []).map((lc: any) => {
+                  const rc = (remoteCard.categories || []).find((c: any) => c.id === lc.id || c.name === lc.name);
+                  if (!rc) return lc;
+                  const newItems = (lc.items || []).map((li: any) => {
+                    const ri = (rc.items || []).find((i: any) => i.id === li.id || i.task === li.task);
+                    if (!ri) return li;
+                    const isDone = Boolean(li.isDone || ri.isDone);
+                    const accumulatedMinutes = Math.max(Number(li.accumulatedMinutes) || 0, Number(ri.accumulatedMinutes) || 0);
+                    if (isDone !== Boolean(ri.isDone) || (accumulatedMinutes > 0 && accumulatedMinutes !== ri.accumulatedMinutes)) {
                       hasLocalDone = true;
-                      return { ...ri, isDone: true };
                     }
-                    return ri;
+                    return {
+                      ...li,
+                      isDone,
+                      accumulatedMinutes: accumulatedMinutes > 0 ? accumulatedMinutes : undefined
+                    };
                   });
-                  return { ...rc, items: newItems };
-                });
+                  return { ...lc, items: newItems };
+                }));
                 if (hasLocalDone) {
                   localNeedsUpload = true;
                 }
@@ -722,7 +762,7 @@ function App() {
 
                 merged[dateKey] = {
                   ...remoteCard,
-                  categories: hasLocalDone ? mergedCategories : remoteCard.categories,
+                  categories: mergedCategories,
                   basicData: mergedBasic,
                   signOffNote: mergedSignOff,
                   newThings: mergedNewThings,
@@ -733,6 +773,17 @@ function App() {
                 };
               }
             }
+
+            // 全カードを sanitizeCategories に通し、「SGけ」等の破損データを全自動修復
+            Object.keys(merged).forEach(dateKey => {
+              if (merged[dateKey] && merged[dateKey].categories) {
+                const clean = sanitizeCategories(merged[dateKey].categories);
+                if (JSON.stringify(clean) !== JSON.stringify(merged[dateKey].categories)) {
+                  merged[dateKey] = { ...merged[dateKey], categories: clean };
+                  localNeedsUpload = true;
+                }
+              }
+            });
 
             if (localNeedsUpload) {
               console.warn("🛡️ Protected local un-synced data from being overwritten by Firestore! Re-syncing...");
@@ -755,8 +806,19 @@ function App() {
           });
         }
         if (data.templates) {
-          lastSyncStr.current.templates = JSON.stringify(data.templates);
-          setTemplates(data.templates);
+          const sanitizedTemplates: Record<string, Category[]> = {};
+          let templateNeedsUpload = false;
+          Object.entries(data.templates).forEach(([shiftKey, cats]: [string, any]) => {
+            sanitizedTemplates[shiftKey] = sanitizeCategories(cats);
+            if (JSON.stringify(sanitizedTemplates[shiftKey]) !== JSON.stringify(cats)) {
+              templateNeedsUpload = true;
+            }
+          });
+          lastSyncStr.current.templates = JSON.stringify(sanitizedTemplates);
+          setTemplates(sanitizedTemplates);
+          if (templateNeedsUpload && db) {
+            updateDoc(doc(db, 'appData', 'sharedState'), { templates: sanitizedTemplates }).catch(console.error);
+          }
         }
         if (data.masterCardTemplate) {
           const sanitizedMaster = sanitizeCategories(data.masterCardTemplate);
@@ -958,7 +1020,7 @@ function App() {
     });
   };
 
-  const setCategories = (newCats: any) => {
+  const setCategories = (newCats: any, isTyping = false) => {
     if (viewingArchivedCycle) return;
     if (isEditingMasterTemplate) {
       setMasterCardTemplate(prev => {
@@ -970,7 +1032,11 @@ function App() {
       const card = prev[activeDate] || { categories: fallbackCategories, currentShift: 'D', signature: null, rewardImage: null };
       const resolved = typeof newCats === 'function' ? newCats(card.categories) : newCats;
       const next = { ...prev, [activeDate]: { ...card, categories: resolved } };
-      saveCardsNow(next);
+      if (isTyping) {
+        saveCardsDebounced(next);
+      } else {
+        saveCardsNow(next);
+      }
       return next;
     });
   };
@@ -1326,7 +1392,16 @@ function App() {
     }
   };
 
-  const toggleMode = () => setIsEditMode(!isEditMode);
+  const toggleMode = () => {
+    if (isEditMode) {
+      if (cardsDebounceTimer.current) {
+        clearTimeout(cardsDebounceTimer.current);
+        cardsDebounceTimer.current = null;
+        performCardsSync(latestCardsRef.current);
+      }
+    }
+    setIsEditMode(!isEditMode);
+  };
 
   const handleDragEnd = (result: DropResult) => {
     const { source, destination, type } = result;
@@ -1376,7 +1451,7 @@ function App() {
         };
       }
       return c;
-    }));
+    }), true);
   };
 
   const handleDescriptionChange = (categoryId: string, taskId: string, newDescription: string) => {
@@ -1388,7 +1463,7 @@ function App() {
         };
       }
       return c;
-    }));
+    }), true);
   };
 
   const handleTimeChange = (categoryId: string, taskId: string, newTime: string) => {
@@ -1529,7 +1604,7 @@ function App() {
   };
 
   const handleCategoryNameChange = (categoryId: string, newName: string) => {
-    setCategories(categories.map(c => c.id === categoryId ? { ...c, name: newName } : c));
+    setCategories(categories.map(c => c.id === categoryId ? { ...c, name: newName } : c), true);
   };
 
   const deleteCategory = (categoryId: string) => {
