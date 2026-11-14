@@ -91,7 +91,7 @@ const StarIcon = ({ filled, onClick }: { filled: boolean, onClick: () => void })
 
 export interface KpiLinkConfig {
   enabled: boolean;
-  sourceType: 'sleep' | 'task' | 'perfect' | 'rating' | 'newThings';
+  sourceType: 'sleep' | 'task' | 'perfect' | 'rating' | 'newThings' | 'studyTime';
   operator?: '>=' | '<=' | 'recorded';
   threshold?: number;
   taskName?: string;
@@ -126,6 +126,17 @@ const defaultMonthlyKpis: MonthlyKpi[] = [
     title: '読んだ本・インプット作品メモ',
     type: 'text',
     currentValue: ''
+  },
+  {
+    id: 'kpi-default-4',
+    title: 'スキルアップ・SG研究（月20h）',
+    type: 'number',
+    targetValue: 20,
+    currentValue: 0,
+    linkConfig: {
+      enabled: true,
+      sourceType: 'studyTime'
+    }
   }
 ];
 
@@ -154,6 +165,13 @@ const calculateSleepDuration = (start?: string, end?: string) => {
     hoursDecimal,
     formattedText: `${start} - ${end} (${hoursDecimal}h)`
   };
+};
+
+export const isStudyTimerTask = (categoryName?: string, taskName?: string): boolean => {
+  if (!categoryName || !taskName) return false;
+  const c = categoryName.trim().toLowerCase();
+  const t = taskName.trim().toLowerCase();
+  return c === 'study' && t.includes('sg研究');
 };
 
 const computeLinkedKpiCount = (config: KpiLinkConfig | undefined, monthlyCards: Record<string, any>): number => {
@@ -189,6 +207,16 @@ const computeLinkedKpiCount = (config: KpiLinkConfig | undefined, monthlyCards: 
         });
       });
       if (isDone) count++;
+    } else if (config.sourceType === 'studyTime') {
+      (card.categories || []).forEach((cat: any) => {
+        const catName = cat?.name || '';
+        (cat?.items || []).forEach((item: any) => {
+          if (isStudyTimerTask(catName, item?.task)) {
+            const mins = Number(item.accumulatedMinutes) || 0;
+            count += mins;
+          }
+        });
+      });
     } else if (config.sourceType === 'perfect') {
       if (card.signature) count++;
     } else if (config.sourceType === 'rating') {
@@ -201,6 +229,10 @@ const computeLinkedKpiCount = (config: KpiLinkConfig | undefined, monthlyCards: 
       }
     }
   });
+
+  if (config.sourceType === 'studyTime') {
+    return Math.round((count / 60) * 10) / 10;
+  }
 
   return count;
 };
@@ -288,6 +320,11 @@ const sanitizeLoadedKpi = (kpi: any): MonthlyKpi => {
         enabled: true,
         sourceType: 'newThings'
       };
+    } else if (t.includes('スキルアップ') || t.includes('sg研究') || t.includes('勉強時間')) {
+      item.linkConfig = {
+        enabled: true,
+        sourceType: 'studyTime'
+      };
     }
   }
 
@@ -302,6 +339,8 @@ interface Habit {
   isSkipped?: boolean;
   time?: string;
   estimatedTime?: number;
+  accumulatedMinutes?: number;
+  timerActiveStart?: number;
 }
 
 interface Category {
@@ -1030,6 +1069,123 @@ function App() {
       ? currentSkipped.filter(f => f !== field)
       : [...currentSkipped, field];
     setBasicData({ skippedFields: newSkipped });
+  };
+
+  // --- STUDY TIMER STATE & HANDLERS ---
+  const [isStudyTimerModalOpen, setIsStudyTimerModalOpen] = useState(false);
+  const [timerTargetTask, setTimerTargetTask] = useState<{
+    categoryId: string;
+    habitId: string;
+    categoryName: string;
+    taskName: string;
+    targetMinutes: number;
+  } | null>(null);
+
+  const [timerIsRunning, setTimerIsRunning] = useState(false);
+  const [timerSessionSeconds, setTimerSessionSeconds] = useState(0);
+  const [timerAccumulatedSeconds, setTimerAccumulatedSeconds] = useState(0);
+  const timerStartTimestampRef = useRef<number | null>(null);
+
+  const openStudyTimerModal = (category: Category, habit: Habit) => {
+    if (viewingArchivedCycle || isEditingMasterTemplate) return;
+    const targetMins = habit.time ? parseInt(habit.time, 10) : 0;
+    const currentMins = habit.accumulatedMinutes || 0;
+    
+    setTimerTargetTask({
+      categoryId: category.id,
+      habitId: habit.id,
+      categoryName: category.name,
+      taskName: habit.task,
+      targetMinutes: isNaN(targetMins) ? 0 : targetMins
+    });
+    setTimerIsRunning(false);
+    setTimerSessionSeconds(0);
+    setTimerAccumulatedSeconds(currentMins * 60);
+    timerStartTimestampRef.current = null;
+    setIsStudyTimerModalOpen(true);
+  };
+
+  useEffect(() => {
+    let interval: any = null;
+    if (timerIsRunning) {
+      if (!timerStartTimestampRef.current) {
+        timerStartTimestampRef.current = Date.now() - timerSessionSeconds * 1000;
+      }
+      interval = setInterval(() => {
+        if (timerStartTimestampRef.current) {
+          const elapsed = Math.floor((Date.now() - timerStartTimestampRef.current) / 1000);
+          setTimerSessionSeconds(elapsed);
+        }
+      }, 250);
+    } else {
+      if (interval) clearInterval(interval);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [timerIsRunning]);
+
+  const handleStartTimer = () => {
+    timerStartTimestampRef.current = Date.now() - timerSessionSeconds * 1000;
+    setTimerIsRunning(true);
+  };
+
+  const handleStopTimer = () => {
+    setTimerIsRunning(false);
+    setTimerAccumulatedSeconds(prev => prev + timerSessionSeconds);
+    setTimerSessionSeconds(0);
+    timerStartTimestampRef.current = null;
+  };
+
+  const handleAdjustTimerMinutes = (deltaMinutes: number) => {
+    setTimerAccumulatedSeconds(prev => Math.max(0, prev + deltaMinutes * 60));
+  };
+
+  const handleResetTimer = () => {
+    if (window.confirm("本日のタイマー記録をリセットしますか？")) {
+      setTimerIsRunning(false);
+      setTimerSessionSeconds(0);
+      setTimerAccumulatedSeconds(0);
+      timerStartTimestampRef.current = null;
+    }
+  };
+
+  const handleSaveAndCloseTimer = () => {
+    if (!timerTargetTask) {
+      setIsStudyTimerModalOpen(false);
+      return;
+    }
+
+    let finalTotalSeconds = timerAccumulatedSeconds;
+    if (timerIsRunning) {
+      finalTotalSeconds += timerSessionSeconds;
+      setTimerIsRunning(false);
+    }
+
+    const finalMinutes = finalTotalSeconds > 0 ? Math.max(1, Math.round(finalTotalSeconds / 60)) : 0;
+    const targetMins = timerTargetTask.targetMinutes;
+    const isCompleted = targetMins > 0 ? finalMinutes >= targetMins : finalMinutes > 0;
+
+    setCategories(categories.map(c => {
+      if (c.id === timerTargetTask.categoryId) {
+        return {
+          ...c,
+          items: c.items.map(t => {
+            if (t.id === timerTargetTask.habitId) {
+              return {
+                ...t,
+                accumulatedMinutes: finalMinutes,
+                isDone: isCompleted
+              };
+            }
+            return t;
+          })
+        };
+      }
+      return c;
+    }));
+
+    setIsStudyTimerModalOpen(false);
   };
   
   const [rewardImageUrls, setRewardImageUrls] = useState(() => localStorage.getItem('rewardImageUrls') || '');
@@ -2036,6 +2192,7 @@ function App() {
                                   ) : (
                                     <>
                                       <option value="sleep">睡眠時間 (Sleeping Time)</option>
+                                      <option value="studyTime">勉強時間 (STUDY / SG研究)</option>
                                       <option value="task">習慣タスク (Habit Task)</option>
                                       <option value="perfect">全タスク完了 / サイン (Complete Check)</option>
                                       <option value="rating">the day度 (Day Rating)</option>
@@ -2044,6 +2201,13 @@ function App() {
                                   )}
                                 </select>
                               </div>
+
+                              {/* 勉強時間 (STUDY / SG研究) 説明文 */}
+                              {editKpiLinkSource === 'studyTime' && (
+                                <div className="kpi-link-desc-hint">
+                                  ※ 当月のカードから「study」カテゴリ「sg研究」の累積勉強時間を自動合算し、時間単位（h）で反映します。
+                                </div>
+                              )}
 
                               {/* NEW THINGS 説明文 */}
                               {editKpiLinkSource === 'newThings' && (
@@ -2156,7 +2320,7 @@ function App() {
                                   <span className="kpi-title-text">{kpi.title}</span>
                                   {(kpi.linkConfig?.enabled || isKpiLinkedToNewThings(kpi)) && (
                                     <span className="kpi-linked-badge" title="HABITS CARDと自動連動中">
-                                      🔗 AUTO{isKpiLinkedToNewThings(kpi) ? ' (NEW THINGS)' : ''}
+                                      🔗 AUTO{isKpiLinkedToNewThings(kpi) ? ' (NEW THINGS)' : kpi.linkConfig?.sourceType === 'studyTime' ? ' (SG研究)' : ''}
                                     </span>
                                   )}
                                   {isEditMode && (
@@ -2258,9 +2422,10 @@ function App() {
                                 const current = isLinked ? linkedCount : (typeof kpi.currentValue === 'number' ? kpi.currentValue : 0);
                                 const target = kpi.targetValue || 1;
                                 const isCompleted = current >= target;
+                                const isStudyTimeKpi = kpi.linkConfig?.sourceType === 'studyTime';
                                 const padLen = target >= 100 ? 3 : 2;
-                                const currentDisplay = String(current).padStart(padLen, '0');
-                                const targetDisplay = String(target).padStart(padLen, '0');
+                                const currentDisplay = isStudyTimeKpi ? `${current}h` : String(current).padStart(padLen, '0');
+                                const targetDisplay = isStudyTimeKpi ? `${target}h` : String(target).padStart(padLen, '0');
 
                                 return (
                                   <div 
@@ -2433,6 +2598,7 @@ function App() {
                               ) : (
                                 <>
                                   <option value="sleep">睡眠時間 (Sleeping Time)</option>
+                                  <option value="studyTime">勉強時間 (STUDY / SG研究)</option>
                                   <option value="task">習慣タスク (Habit Task)</option>
                                   <option value="perfect">全タスク完了 / サイン (Complete Check)</option>
                                   <option value="rating">the day度 (Day Rating)</option>
@@ -2441,6 +2607,13 @@ function App() {
                               )}
                             </select>
                           </div>
+
+                          {/* 勉強時間 (STUDY / SG研究) 説明文 */}
+                          {newKpiLinkSource === 'studyTime' && (
+                            <div className="kpi-link-desc-hint">
+                              ※ 当月のカードから「study」カテゴリ「sg研究」の累積勉強時間を自動合算し、時間単位（h）で反映します。
+                            </div>
+                          )}
 
                           {/* NEW THINGS 説明文 */}
                           {newKpiLinkSource === 'newThings' && (
@@ -3013,22 +3186,42 @@ function App() {
                             )}
                           </div>
 
-                          {!effectiveIsEditMode ? (
-                            <div 
-                              className="done-cell" 
-                              onClick={() => toggleDone(category.id, habit.id)}
-                              onTouchStart={() => handleTouchStart(category.id, habit.id)}
-                              onTouchEnd={handleTouchEnd}
-                              onTouchMove={handleTouchEnd}
-                              onMouseDown={() => handleTouchStart(category.id, habit.id)}
-                              onMouseUp={handleTouchEnd}
-                              onMouseLeave={handleTouchEnd}
-                              onContextMenu={(e) => handleContextMenu(e, category.id, habit.id)}
-                            >
-                              {habit.isDone && <div className="stamp">済</div>}
-                              {habit.isSkipped && <div className="slash-line"></div>}
-                            </div>
-                          ) : (
+                          {!effectiveIsEditMode ? (() => {
+                            const isTimer = isStudyTimerTask(category.name, habit.task);
+                            const hasAccumulated = (habit.accumulatedMinutes || 0) > 0;
+                            const formattedTime = (habit.accumulatedMinutes || 0) >= 60 
+                              ? `${((habit.accumulatedMinutes || 0) / 60).toFixed(1)}h` 
+                              : `${habit.accumulatedMinutes || 0}m`;
+
+                            return (
+                              <div 
+                                className={`done-cell ${isTimer ? 'is-study-timer' : ''} ${habit.isDone ? 'is-done' : ''}`} 
+                                onClick={() => {
+                                  if (isTimer) {
+                                    openStudyTimerModal(category, habit);
+                                  } else {
+                                    toggleDone(category.id, habit.id);
+                                  }
+                                }}
+                                onTouchStart={() => handleTouchStart(category.id, habit.id)}
+                                onTouchEnd={handleTouchEnd}
+                                onTouchMove={handleTouchEnd}
+                                onMouseDown={() => handleTouchStart(category.id, habit.id)}
+                                onMouseUp={handleTouchEnd}
+                                onMouseLeave={handleTouchEnd}
+                                onContextMenu={(e) => handleContextMenu(e, category.id, habit.id)}
+                                title={isTimer ? (viewingArchivedCycle ? `勉強時間: ${formattedTime}` : 'タップして勉強タイマーを開く（右クリックでスキップ）') : undefined}
+                              >
+                                {habit.isDone && <div className="stamp">済</div>}
+                                {habit.isSkipped && <div className="slash-line"></div>}
+                                {isTimer && !habit.isSkipped && hasAccumulated && (
+                                  <div className={`study-timer-badge ${habit.isDone ? 'is-achieved' : 'is-accumulating'}`}>
+                                    {formattedTime}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })() : (
                             <div className="action-cell">
                               <button 
                                 className="delete-btn" 
@@ -3503,6 +3696,129 @@ function App() {
           </div>
         </div>
       )}
+
+      {isStudyTimerModalOpen && timerTargetTask && (() => {
+        const currentTotalSec = timerAccumulatedSeconds + (timerIsRunning ? timerSessionSeconds : 0);
+        const currentTotalMins = currentTotalSec > 0 ? Math.max(1, Math.round(currentTotalSec / 60)) : 0;
+        const targetMins = timerTargetTask.targetMinutes;
+        const isAchieved = targetMins > 0 ? currentTotalMins >= targetMins : currentTotalMins > 0;
+        const progressPercent = targetMins > 0 ? Math.min(100, Math.round((currentTotalMins / targetMins) * 100)) : 100;
+
+        const formatSec = (totalSec: number) => {
+          const h = Math.floor(totalSec / 3600);
+          const m = Math.floor((totalSec % 3600) / 60);
+          const s = totalSec % 60;
+          if (h > 0) {
+            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+          }
+          return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        };
+
+        return (
+          <div className="modal-overlay" onClick={handleSaveAndCloseTimer}>
+            <div className="modal-content study-timer-modal-content" onClick={e => e.stopPropagation()}>
+              <div className="study-timer-header">
+                <div className="study-timer-title-box">
+                  <span className="study-timer-tag">STUDY TIMER</span>
+                  <h3 className="modal-title">{timerTargetTask.taskName.toUpperCase()}</h3>
+                </div>
+                <button 
+                  type="button" 
+                  className="study-timer-close-btn"
+                  onClick={handleSaveAndCloseTimer}
+                  title="保存して閉じる"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* メインタイマー表示（大文字等幅デジタル） */}
+              <div className="study-timer-display-box">
+                <div className={`study-timer-session-label ${timerIsRunning ? 'recording' : 'paused'}`}>
+                  {timerIsRunning ? '● RECORDING' : '❚❚ PAUSED'}
+                </div>
+                <div className={`study-timer-digits ${timerIsRunning ? 'is-running' : ''}`}>
+                  {formatSec(timerSessionSeconds)}
+                </div>
+                <div className="study-timer-sub-label">CURRENT SESSION</div>
+              </div>
+
+              {/* 操作ボタン (START / STOP) */}
+              <div className="study-timer-controls">
+                {!timerIsRunning ? (
+                  <button 
+                    type="button" 
+                    className="study-timer-btn start" 
+                    onClick={handleStartTimer}
+                  >
+                    ▶ START
+                  </button>
+                ) : (
+                  <button 
+                    type="button" 
+                    className="study-timer-btn stop" 
+                    onClick={handleStopTimer}
+                  >
+                    ❚❚ STOP / PAUSE
+                  </button>
+                )}
+              </div>
+
+              {/* 当日累計ステータス & 目安時間比較 */}
+              <div className="study-timer-stats-card">
+                <div className="study-timer-stats-header">
+                  <span className="stats-label">TODAY'S TOTAL:</span>
+                  <span className="stats-value">
+                    <strong>{currentTotalMins}</strong> min
+                    {targetMins > 0 && <span className="stats-target"> / {targetMins} min</span>}
+                  </span>
+                  {isAchieved && (
+                    <span className="stats-badge achieved">ACHIEVED</span>
+                  )}
+                </div>
+
+                {targetMins > 0 && (
+                  <div className="study-timer-progress-track">
+                    <div 
+                      className={`study-timer-progress-fill ${isAchieved ? 'is-achieved' : ''}`}
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* 手動微調整ボタン */}
+              <div className="study-timer-adjust-row">
+                <span className="adjust-label">QUICK ADJUST:</span>
+                <div className="adjust-buttons">
+                  <button type="button" className="adjust-btn" onClick={() => handleAdjustTimerMinutes(-5)}>-5m</button>
+                  <button type="button" className="adjust-btn" onClick={() => handleAdjustTimerMinutes(5)}>+5m</button>
+                  <button type="button" className="adjust-btn" onClick={() => handleAdjustTimerMinutes(15)}>+15m</button>
+                  <button type="button" className="adjust-btn" onClick={() => handleAdjustTimerMinutes(30)}>+30m</button>
+                </div>
+              </div>
+
+              {/* フッターアクション */}
+              <div className="study-timer-footer">
+                <button 
+                  type="button" 
+                  className="study-timer-reset-btn"
+                  onClick={handleResetTimer}
+                >
+                  RESET
+                </button>
+                <button 
+                  type="button" 
+                  className="done-btn study-timer-save-btn"
+                  onClick={handleSaveAndCloseTimer}
+                >
+                  SAVE & CLOSE
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Fixed Bottom Navigation */}
       <nav className="bottom-nav">
