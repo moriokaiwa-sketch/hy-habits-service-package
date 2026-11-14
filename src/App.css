@@ -1175,6 +1175,7 @@ input:checked + .slider:before {
   border: 2px solid var(--text-color, #1a1a1a);
   padding: 1.25rem 1rem;
   box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.08);
+  scroll-margin-top: 1rem;
 }
 
 .archive-month-title {

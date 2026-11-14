@@ -1367,6 +1367,25 @@ function App() {
     prevIsAllTasksCompleted.current = isAllTasksCompleted;
   }, [isAllTasksCompleted]);
 
+  const scrollToLatestArchiveMonth = (behavior: ScrollBehavior = 'auto') => {
+    const scroll = () => {
+      const el = document.getElementById('archive-latest-month');
+      if (el) {
+        el.scrollIntoView({ behavior, block: 'start' });
+      }
+    };
+    requestAnimationFrame(() => {
+      scroll();
+      setTimeout(scroll, 60);
+    });
+  };
+
+  useEffect(() => {
+    if (isArchiveView && !viewingArchivedCycle) {
+      scrollToLatestArchiveMonth('auto');
+    }
+  }, [isArchiveView, viewingArchivedCycle]);
+
   const fetchRewardImage = async () => {
     if (!rewardImageUrls) {
       setRewardError('⚙️ Reward Settings に ご褒美画像のURLを設定してください。');
@@ -1719,6 +1738,7 @@ function App() {
     if (viewingArchivedCycle) {
       setViewingArchivedCycle(null);
     }
+    scrollToLatestArchiveMonth('smooth');
   };
 
   const handleNavSettings = () => {
@@ -2074,13 +2094,19 @@ function App() {
             <div className="archive-empty-state">
               <p>アーカイブされたサイクルはありません。</p>
             </div>
-          ) : (
-            Object.keys(groupedByMonth).sort().map(monthStr => {
+          ) : (() => {
+            const sortedMonthKeys = Object.keys(groupedByMonth).sort();
+            return sortedMonthKeys.map((monthStr, mIdx) => {
               const [, month] = monthStr.split('-');
               const monthLabel = `${parseInt(month, 10)}月`; // "6月"
+              const isLatestMonth = mIdx === sortedMonthKeys.length - 1;
               
               return (
-                <div key={monthStr} className="archive-month-group">
+                <div 
+                  key={monthStr} 
+                  id={isLatestMonth ? "archive-latest-month" : undefined}
+                  className="archive-month-group"
+                >
                   <div className="archive-month-title">{monthLabel}</div>
                   {groupedByMonth[monthStr].map(({ cycle }) => {
                     const dates = Object.keys(cycle.cards || {}).sort();
@@ -2138,8 +2164,8 @@ function App() {
                   })}
                 </div>
               );
-            })
-          )}
+            });
+          })()}
         </div>
       </div>
     );
