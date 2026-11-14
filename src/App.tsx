@@ -212,7 +212,7 @@ const computeLinkedKpiCount = (config: KpiLinkConfig | undefined, monthlyCards: 
       (card.categories || []).forEach((cat: any) => {
         const catName = cat?.name || '';
         (cat?.items || []).forEach((item: any) => {
-          if (isStudyTimerTask(catName, item?.task)) {
+          if (item?.type === 'timer' || isStudyTimerTask(catName, item?.task)) {
             const mins = Number(item.accumulatedMinutes) || 0;
             count += mins;
           }
@@ -340,6 +340,7 @@ interface Habit {
   isSkipped?: boolean;
   time?: string;
   estimatedTime?: number;
+  type?: 'check' | 'timer';
   accumulatedMinutes?: number;
   timerActiveStart?: number;
 }
@@ -408,6 +409,14 @@ function sanitizeCategories(raw: any): Category[] {
         taskText = 'SG研究';
       }
 
+      // タイプ判定（明示的に指定されている場合はそれを優先、既存データ救済で study カテゴリや SG研究、累積時間保持は timer）
+      let habitType: 'check' | 'timer' = 'check';
+      if (item?.type === 'timer' || item?.type === 'check') {
+        habitType = item.type;
+      } else if (catName === 'study' || taskTrimmed.includes('sg') || taskTrimmed.includes('研究') || (typeof item?.accumulatedMinutes === 'number' && item.accumulatedMinutes > 0)) {
+        habitType = 'timer';
+      }
+
       const habitObj: Habit = {
         id: String(item?.id || `task-${Date.now()}-${cIdx}-${iIdx}`),
         task: taskText,
@@ -415,6 +424,7 @@ function sanitizeCategories(raw: any): Category[] {
         time: item?.time ? String(item.time) : (estimatedTime ? String(estimatedTime) : ''),
         isDone: Boolean(item?.isDone),
         isSkipped: Boolean(item?.isSkipped),
+        type: habitType,
         accumulatedMinutes: typeof item?.accumulatedMinutes === 'number' ? item.accumulatedMinutes : undefined,
         timerActiveStart: typeof item?.timerActiveStart === 'number' ? item.timerActiveStart : undefined
       };
@@ -1593,11 +1603,38 @@ function App() {
     }));
   };
 
-  const addHabit = (categoryId: string) => {
-    const newId = `task-${Date.now()}`;
+  const handleTypeChange = (categoryId: string, taskId: string, newType: 'check' | 'timer') => {
     setCategories(categories.map(c => {
       if (c.id === categoryId) {
-        return { ...c, items: [...c.items, { id: newId, task: "", description: "", isDone: false }] };
+        return {
+          ...c,
+          items: c.items.map(t => t.id === taskId ? { ...t, type: newType } : t)
+        };
+      }
+      return c;
+    }));
+  };
+
+  const addHabit = (categoryId: string, defaultType: 'check' | 'timer' = 'check') => {
+    const newId = `task-${Date.now()}`;
+    const targetCat = categories.find(c => c.id === categoryId);
+    const isStudyCat = (targetCat?.name || '').trim().toLowerCase() === 'study';
+    const resolvedType = defaultType === 'timer' || isStudyCat ? 'timer' : 'check';
+    setCategories(categories.map(c => {
+      if (c.id === categoryId) {
+        return { 
+          ...c, 
+          items: [
+            ...c.items, 
+            { 
+              id: newId, 
+              task: "", 
+              description: "", 
+              isDone: false,
+              type: resolvedType
+            }
+          ] 
+        };
       }
       return c;
     }));
@@ -3281,7 +3318,7 @@ function App() {
                           </div>
 
                           {!effectiveIsEditMode ? (() => {
-                            const isTimer = isStudyTimerTask(category.name, habit.task);
+                            const isTimer = habit.type === 'timer' || isStudyTimerTask(category.name, habit.task);
                             const hasAccumulated = (habit.accumulatedMinutes || 0) > 0;
                             const formattedTime = (habit.accumulatedMinutes || 0) >= 60 
                               ? `${((habit.accumulatedMinutes || 0) / 60).toFixed(1)}h` 
@@ -3304,7 +3341,7 @@ function App() {
                                 onMouseUp={handleTouchEnd}
                                 onMouseLeave={handleTouchEnd}
                                 onContextMenu={(e) => handleContextMenu(e, category.id, habit.id)}
-                                title={isTimer ? (viewingArchivedCycle ? `勉強時間: ${formattedTime}` : 'タップして勉強タイマーを開く（右クリックでスキップ）') : undefined}
+                                title={isTimer ? (viewingArchivedCycle ? `累積時間: ${formattedTime}` : 'タップしてタイマーを開く（右クリックでスキップ）') : undefined}
                               >
                                 {habit.isDone && <div className="stamp">済</div>}
                                 {habit.isSkipped && <div className="slash-line"></div>}
@@ -3317,7 +3354,16 @@ function App() {
                             );
                           })() : (
                             <div className="action-cell">
+                              <button
+                                type="button"
+                                className={`item-type-toggle-btn ${habit.type === 'timer' ? 'is-timer' : 'is-check'}`}
+                                onClick={() => handleTypeChange(category.id, habit.id, habit.type === 'timer' ? 'check' : 'timer')}
+                                title="タップしてタイプ切り替え（CHECK: 通常押印 / TIMER: 計測）"
+                              >
+                                {habit.type === 'timer' ? '⏱ TIMER' : 'CHECK'}
+                              </button>
                               <button 
+                                type="button"
                                 className="delete-btn" 
                                 onClick={() => deleteHabit(category.id, habit.id)}
                                 title="Delete task"

@@ -484,10 +484,52 @@ input:checked + .slider:before {
 }
 
 .action-cell {
-  width: 80px;
+  width: 90px;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 0.35rem;
+  padding: 0 0.2rem;
+}
+
+.item-type-toggle-btn {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.62rem;
+  font-weight: 800;
+  padding: 0.28rem 0.38rem;
+  border-radius: 2px;
+  cursor: pointer;
+  line-height: 1;
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+  transition: all 0.1s ease;
+}
+
+.item-type-toggle-btn.is-check {
+  background-color: #f1f5f9;
+  color: #475569;
+  border: 1px dashed #94a3b8;
+}
+
+.item-type-toggle-btn.is-check:hover {
+  background-color: #e2e8f0;
+  color: #1e293b;
+}
+
+.item-type-toggle-btn.is-timer {
+  background-color: #1a1a1a;
+  color: #ffffff;
+  border: 1px solid #1a1a1a;
+  box-shadow: 1px 1px 0px rgba(0, 0, 0, 0.2);
+}
+
+.item-type-toggle-btn.is-timer:hover {
+  background-color: #2e7d32;
+  border-color: #1b5e20;
+}
+
+.item-type-toggle-btn:active {
+  transform: translateY(1px);
 }
 
 /* Slash Line for skipped state */
@@ -540,8 +582,8 @@ input:checked + .slider:before {
   border: none;
   cursor: pointer;
   color: var(--stamp-color);
-  font-size: 1.2rem;
-  padding: 0.5rem;
+  font-size: 1.15rem;
+  padding: 0.2rem;
   opacity: 0.6;
 }
 
